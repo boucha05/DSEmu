@@ -1,6 +1,7 @@
 #pragma once
 
 #define EMU_CONFIG_LITTLE_ENDIAN    1
+#define EMU_CONFIG_BIG_ENDIAN       0
 #define EMU_CONFIG_DIR_SEPARATOR    '\\'
 
 #define _CRT_SECURE_NO_WARNINGS

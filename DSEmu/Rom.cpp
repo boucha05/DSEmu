@@ -4,7 +4,7 @@
 
 namespace
 {
-    bool readFile(std::vector<char>& buffer, const char* path, size_t maxSize = SIZE_MAX)
+    bool readFile(std::vector<uint8_t>& buffer, const char* path, size_t maxSize = SIZE_MAX)
     {
         FILE* file = fopen(path, "rb");
         EMU_VERIFY(file);
@@ -32,6 +32,13 @@ namespace nds
     bool Rom::create(const char* path)
     {
         EMU_VERIFY(readFile(mContent, path));
+        EMU_VERIFY(getHeader(mHeader, mContent.data(), mContent.size()));
+        EMU_VERIFY(getDescription(mDescription, mHeader));
+
+        // Swap 32-bit words into native endian to make 32-bit memory operations faster
+        EMU_VERIFY((mContent.size() & 3) == 0);
+        NDS_SWAP_ARRAY(reinterpret_cast<uint32_t*>(mContent.data()), emu::divideUp(mContent.size(), static_cast<size_t>(4)));
+
         return true;
     }
 
@@ -81,7 +88,7 @@ namespace nds
 
     bool Rom::readHeader(Header& header, const char* path)
     {
-        std::vector<char> buffer;
+        std::vector<uint8_t> buffer;
         EMU_VERIFY(readFile(buffer, path, sizeof(Header)));
         return getHeader(header, buffer.data(), buffer.size());
     }

@@ -70,7 +70,7 @@ namespace nds
         static bool readHeader(Header& header, const char* path);
         static bool readDescription(Description& description, const char* path);
 
-        const std::vector<char>& getContent() const
+        const std::vector<uint8_t>& getContent() const
         {
             return mContent;
         }
@@ -86,8 +86,8 @@ namespace nds
         }
 
     private:
-        std::vector<char>   mContent;
-        Header              mHeader;
-        Description         mDescription;
+        std::vector<uint8_t>    mContent;
+        Header                  mHeader;
+        Description             mDescription;
     };
 }

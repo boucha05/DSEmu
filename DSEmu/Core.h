@@ -8,9 +8,10 @@
 #include <cstdlib>
 
 #if defined(DEBUG) || defined(_DEBUG)
-#include <assert.h>
-#define EMU_ASSERT(e)   emu::Assert(!!(e), #e)
+#define EMU_DEBUG       1
+#define EMU_ASSERT(e)   emu::assertValid(!!(e), #e)
 #else
+#define EMU_DEBUG       0
 #define EMU_ASSERT(e)
 #endif
 #define EMU_VERIFY(e)   if (e) ; else return false
@@ -18,15 +19,19 @@
 #define EMU_BIT(n)      (1 << (n))
 
 #if EMU_CONFIG_LITTLE_ENDIAN
-#define EMU_SWAP_LITTLE_ENDIAN(expr)            (expr)
-#define EMU_SWAP_LITTLE_ENDIAN_INLINE(expr)     (expr)
-#define EMU_SWAP_BIG_ENDIAN(expr)               (emu::swap(expr))
-#define EMU_SWAP_BIG_ENDIAN_INLINE(expr)        (emu::swapInline(expr))
+#define EMU_SWAP_LITTLE_ENDIAN(expr)                (expr)
+#define EMU_SWAP_LITTLE_ENDIAN_INLINE(expr)         (expr)
+#define EMU_SWAP_LITTLE_ENDIAN_ARRAY(expr,count)    (expr)
+#define EMU_SWAP_BIG_ENDIAN(expr)                   (emu::swap(expr))
+#define EMU_SWAP_BIG_ENDIAN_INLINE(expr)            (emu::swapInline(expr))
+#define EMU_SWAP_BIG_ENDIAN_ARRAY(expr,count)       (emu::swap((expr),(count)))
 #else
-#define EMU_SWAP_LITTLE_ENDIAN(expr)            (emu::swap(expr))
-#define EMU_SWAP_LITTLE_ENDIAN_INLINE(expr)     (emu::swapInline(expr))
-#define EMU_SWAP_BIG_ENDIAN(expr)               (expr)
-#define EMU_SWAP_BIG_ENDIAN_INLINE(expr)        (expr)
+#define EMU_SWAP_LITTLE_ENDIAN(expr)                (emu::swap(expr))
+#define EMU_SWAP_LITTLE_ENDIAN_INLINE(expr)         (emu::swapInline(expr))
+#define EMU_SWAP_LITTLE_ENDIAN_ARRAY(expr,count)    (emu::swap((expr),(count)))
+#define EMU_SWAP_BIG_ENDIAN(expr)                   (expr)
+#define EMU_SWAP_BIG_ENDIAN_INLINE(expr)            (expr)
+#define EMU_SWAP_BIG_ENDIAN_ARRAY(expr,count)       (expr)
 #endif
 
 #define EMU_DIR_SEPARATOR   EMU_CONFIG_DIR_SEPARATOR
@@ -68,6 +73,31 @@ namespace emu
     {
         return EMU_PLATFORM_SWAP64(val);
     }
+
+    template <typename T>
+    void swap(T* val, size_t count)
+    {
+        for (size_t index = 0; index < count; ++index)
+            swapInline(val[index]);
+    }
+
+    template <typename T>
+    T alignUp(T value, uint32_t alignment)
+    {
+        T mask = static_cast<T>(alignment) - 1;
+        auto result = (value + mask) & ~mask;
+        return result;
+    }
+
+    template <typename T>
+    T divideUp(T value, uint32_t alignment)
+    {
+        T mask = static_cast<T>(alignment) - 1;
+        auto result = (value + mask) / alignment;
+        return result;
+    }
+
+    void assertValid(bool valid, const char* msg);
 
     class IContext;
     class ISystem;

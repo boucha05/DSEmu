@@ -5,6 +5,8 @@
     <ClCompile Include="Rom.cpp" />
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="NDS.cpp" />
+    <ClCompile Include="MemoryBus.cpp" />
+    <ClCompile Include="Core.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NDS.h" />
@@ -12,5 +14,7 @@
     <ClInclude Include="Core.h" />
     <ClInclude Include="ConfigWindows.h" />
     <ClInclude Include="Application.h" />
+    <ClInclude Include="MemoryBus.h" />
+    <ClInclude Include="Delegate.h" />
   </ItemGroup>
 </Project>
