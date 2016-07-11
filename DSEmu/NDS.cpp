@@ -1,3 +1,5 @@
+#include "Clock.h"
+#include "CpuArm.h"
 #include "MemoryBus.h"
 #include "Rom.h"
 #include <memory>
@@ -17,11 +19,21 @@ namespace
 
             mMainRAM.resize(MAIN_RAM_SIZE);
 
+            EMU_VERIFY(mClock.create());
+
             EMU_VERIFY(mArm7Memory.create(28, 23));
-            EMU_VERIFY(mArm7Memory.addRange(0x02000000, MAIN_RAM_SIZE, mArm7AccessorMainRAM.setName("Main RAM").setMemory(mMainRAM.data())));
+            EMU_VERIFY(mArm7Memory.addRange(0x02000000, MAIN_RAM_SIZE, mAccessorMainRAM.setName("Main RAM").setMemory(mMainRAM.data())));
 
             EMU_VERIFY(mArm9Memory.create(28, 22));
-            EMU_VERIFY(mArm9Memory.addRange(0x02000000, MAIN_RAM_SIZE, mArm9AccessorMainRAM.setName("Main RAM").setMemory(mMainRAM.data())));
+            EMU_VERIFY(mArm9Memory.addRange(0x02000000, MAIN_RAM_SIZE, mAccessorMainRAM));
+
+            CpuArm::Config configCpuArm7;
+            configCpuArm7.family = CpuArm::Family::ARMv4;
+            EMU_VERIFY(mArm7Cpu.create(configCpuArm7, mArm7Memory, mClock, TICKS_PER_FRAME / ARM7_TICKS_PER_FRAME));
+
+            CpuArm::Config configCpuArm9;
+            configCpuArm9.family = CpuArm::Family::ARMv5;
+            EMU_VERIFY(mArm9Cpu.create(configCpuArm9, mArm9Memory, mClock, TICKS_PER_FRAME / ARM7_TICKS_PER_FRAME));
 
             // Load startup code into RAM
             mArm7Memory.import32(header.ARM7RAMAddress, mROM.getContent().data() + header.ARM7ROMOffset, divideUp(header.ARM7Size, 4));
@@ -36,15 +48,19 @@ namespace
 
         void executeFrame()
         {
+            mClock.execute(TICKS_PER_FRAME);
+            mClock.advance(TICKS_PER_FRAME);
         }
 
     private:
         Rom                             mROM;
         std::vector<uint8_t>            mMainRAM;
+        Clock                           mClock;
         MemoryBus                       mArm7Memory;
-        MemoryBus::ReadWriteAccessor    mArm7AccessorMainRAM;
         MemoryBus                       mArm9Memory;
-        MemoryBus::ReadWriteAccessor    mArm9AccessorMainRAM;
+        MemoryBus::ReadWriteAccessor    mAccessorMainRAM;
+        CpuArm                          mArm7Cpu;
+        CpuArm                          mArm9Cpu;
     };
 
     class System : public ISystem

@@ -34,7 +34,9 @@
 #define EMU_SWAP_BIG_ENDIAN_ARRAY(expr,count)       (expr)
 #endif
 
-#define EMU_DIR_SEPARATOR   EMU_CONFIG_DIR_SEPARATOR
+#define EMU_DIR_SEPARATOR       EMU_CONFIG_DIR_SEPARATOR
+
+#define EMU_UNUSED(expr)        (void)expr
 
 namespace emu
 {

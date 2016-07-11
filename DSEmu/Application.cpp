@@ -46,6 +46,7 @@ bool Application::run(const Config& config)
     bool success = create(config);
     if (success)
     {
+        mContext->executeFrame();
         printf("Success\n");
     }
     destroy();

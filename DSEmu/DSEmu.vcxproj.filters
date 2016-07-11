@@ -7,6 +7,8 @@
     <ClCompile Include="NDS.cpp" />
     <ClCompile Include="MemoryBus.cpp" />
     <ClCompile Include="Core.cpp" />
+    <ClCompile Include="Clock.cpp" />
+    <ClCompile Include="CpuArm.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NDS.h" />
@@ -16,5 +18,7 @@
     <ClInclude Include="Application.h" />
     <ClInclude Include="MemoryBus.h" />
     <ClInclude Include="Delegate.h" />
+    <ClInclude Include="Clock.h" />
+    <ClInclude Include="CpuArm.h" />
   </ItemGroup>
 </Project>
