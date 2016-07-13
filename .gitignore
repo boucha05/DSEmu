@@ -4,3 +4,6 @@
 /DSEmu/Release
 /DSEmu/x64
 /DSEmu/Debug
+/Tools/ArmCpuGen/x64
+/Tools/ArmCpuGen/Debug
+/Tools/ArmCpuGen/Release
