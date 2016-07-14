@@ -448,6 +448,38 @@ public:
 
     void genOpcodes_BlockTrans()
     {
+        for (uint32_t p = 0; p < 2; ++p)
+        {
+            for (uint32_t u = 0; u < 2; ++u)
+            {
+                for (uint32_t s = 0; s < 2; ++s)
+                {
+                    for (uint32_t w = 0; w < 2; ++w)
+                    {
+                        for (uint32_t l = 0; l < 2; ++l)
+                        {
+                            for (uint32_t imm = 0; imm < 16; ++imm)
+                            {
+                                std::string insn = l ? "LDM" : "STM";
+                                insn += u ? "I" : "D";
+                                insn += p ? "B" : "A";
+                                insn += s ? "2" : "";
+
+                                std::string variant = "OP_" + insn;
+                                if (w)
+                                {
+                                    insn += "W";
+                                    variant += "_W";
+                                }
+
+                                uint32_t opcode = 0x800 | (p << 8) | (u << 7) | (s << 6) | (w << 5) | (l << 4) | imm;
+                                setInstruction(opcode, insn, variant);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     void genOpcodes_B_BL_BLX()
