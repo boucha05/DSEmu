@@ -130,27 +130,32 @@ public:
 
     void genOpcodes_DataProcShift()
     {
-        for (uint32_t op = 0; op < 16; ++op)
+        for (uint32_t i = 0; i < 2; ++i)
         {
-            for (uint32_t s = 0; s < 2; ++s)
+            for (uint32_t op = 0; op < 16; ++op)
             {
-                if (!s && (op >= 0x08) && (op <= 0x0b))
-                    continue;
-
-                for (uint32_t type = 0; type < 4; ++type)
+                for (uint32_t s = 0; s < 2; ++s)
                 {
-                    std::string insn = opcodeALU[op];
-                    if (s)
-                        insn += "S";
-
-                    std::string variant = opcodeALU[op];
-                    if (s)
-                        variant += "_S";
-                    variant = "OP_" + variant + shiftTypeName[type] + "_IMM";
-
-                    for (uint32_t shift = 0; shift < 2; ++shift)
+                    for (uint32_t imm = 0; imm < 16; ++imm)
                     {
-                        uint32_t opcode = 0x000 | (op << 5) | (s << 4) | (type << 1) | (shift << 3);
+                        uint32_t r = imm & 1;
+                        uint32_t type = (imm >> 1) & 3;
+                        bool test = (op >= 0x8) && (op <= 0xb);
+
+                        if (!i && r && (imm & 8))
+                            continue;
+                        if (!s && test)
+                            continue;
+
+                        std::string insn = opcodeALU[op];
+                        std::string variant = "OP_" + insn;
+                        insn += s ? "S" : "";
+                        variant += (s && !test) ? "_S" : "";
+                        variant += !i ? shiftTypeName[type] : "";
+                        variant += (!i && r) ? "_REG" : "_IMM";
+                        variant += i ? "_VAL" : "";
+
+                        uint32_t opcode = 0x000 | (i << 9) | (op << 5) | (s << 4) | imm;
                         setInstruction(opcode, insn, variant);
                     }
                 }
@@ -160,56 +165,12 @@ public:
 
     void genOpcodes_DataProcReg()
     {
-        for (uint32_t op = 0; op < 16; ++op)
-        {
-            for (uint32_t s = 0; s < 2; ++s)
-            {
-                if (!s && (op >= 0x08) && (op <= 0x0b))
-                    continue;
-
-                for (uint32_t type = 0; type < 4; ++type)
-                {
-                    std::string insn = opcodeALU[op];
-                    if (s)
-                        insn += "S";
-
-                    std::string variant = opcodeALU[op];
-                    if (s)
-                        variant += "_S";
-                    variant = "OP_" + variant + shiftTypeName[type] + "_REG";
-
-                    uint32_t opcode = 0x001 | (op << 5) | (s << 4) | (type << 1);
-                    setInstruction(opcode, insn, variant);
-                }
-            }
-        }
+        //genOpcodes_DataProcShift();
     }
 
     void genOpcodes_DataProcImm()
     {
-        for (uint32_t op = 0; op < 16; ++op)
-        {
-            for (uint32_t s = 0; s < 2; ++s)
-            {
-                if (!s && (op >= 0x08) && (op <= 0x0b))
-                    continue;
-
-                std::string insn = opcodeALU[op];
-                if (s)
-                    insn += "S";
-
-                std::string variant = opcodeALU[op];
-                if (s)
-                    variant += "_S";
-                variant = "OP_" + variant + "_IMM_VAL";
-
-                for (uint32_t imm = 0; imm < 16; ++imm)
-                {
-                    uint32_t opcode = 0x200 | (op << 5) | (s << 4) | imm;
-                    setInstruction(opcode, insn, variant);
-                }
-            }
-        }
+        //genOpcodes_DataProcShift();
     }
 
     void genOpcodes_PSRImm()
@@ -222,16 +183,17 @@ public:
                 {
                     for (uint32_t imm = 0; imm < 16; ++imm)
                     {
+                        if (!op && (imm || i))
+                            continue;
                         if (!i && imm)
                             continue;
 
-                        std::string insn = opcodeALU[op];
-                        insn = op ? "MSR" : "MRS";
+                        std::string insn = op ? "MSR" : "MRS";
 
                         std::string variant = "OP_";
                         variant += insn;
                         variant += psr ? "_SPSR" : "_CPSR";
-                        variant += i ? "?I" : "";
+                        variant += i ? "_IMM_VAL" : "";
 
                         uint32_t opcode = 0x100 | (i << 9) | (psr << 6) | (op << 5) | imm;
                         setInstruction(opcode, insn, variant);
@@ -248,14 +210,18 @@ public:
 
     void genOpcodes_BX_BLX()
     {
+        setInstruction(0x121, "BX", "OP_BX");
+        setInstruction(0x123, "BLX", "OP_BLX_REG");
     }
 
     void genOpcodes_BKPT()
     {
+        setInstruction(0x127, "BLX", "OP_BKPT");
     }
 
     void genOpcodes_CLZ()
     {
+        setInstruction(0x161, "CLZ", "OP_CLZ");
     }
 
     void genOpcodes_QALU()
@@ -348,16 +314,8 @@ public:
 
     void genOpcodes_TransSwp12()
     {
-        for (uint32_t b = 0; b < 2; ++b)
-        {
-            std::string insn = "SWP";
-            std::string variant = "OP_" + insn;
-            insn += b ? "B" : "";
-            variant += b ? "_B" : "";
-
-            uint32_t opcode = 0x109 | (b << 10);
-            setInstruction(opcode, insn, variant);
-        }
+        setInstruction(0x109, "SWP", "OP_SWP");
+        setInstruction(0x149, "SWPB", "OP_SWPB");
     }
 
     void genOpcodes_TransReg10()
@@ -381,40 +339,31 @@ public:
                 {
                     for (uint32_t w = 0; w < 2; ++w)
                     {
-                        if ((p == 0) && (w != 0))
-                            continue;
-
                         for (uint32_t l = 0; l < 2; ++l)
                         {
                             for (uint32_t op = 0; op < 4; ++op)
                             {
-                                if (op == 0)
+                                if (!p && w)
+                                    continue;
+                                if (!op)
                                     continue;
 
-                                std::string insn;
-                                insn = opInsn[l][op];
+                                std::string insn = opInsn[l][op];
                                 insn += opSize[l][op];
-                                insn += w ? "W" : "";
 
-                                std::string variant = "OP_";
-                                if (((op & 2) != 0) && !l)
+                                std::string variant = "OP_" + insn;
+                                insn += w ? "W" : "";
+                                if ((op & 2) && !l)
                                 {
-                                    variant += "LDR";
+                                    variant = "OP_LDR";
                                     variant += opSize[l][op];
-                                    variant += w ? "?W" : "";
                                     variant += "_STR";
                                     variant += opSize[l][op];
-                                    variant += w ? "?W" : "";
-                                    //variant += u ? "?U" : "";
-                                    //variant += i ? "?i" : "";
-                                    variant += p ? "_PRE_INDEX" : "_POST_INDEX";
+                                    variant += p ? "_OFFSET_PRE_INDEX" : "_POST_INDEX";
                                 }
                                 else
                                 {
-                                    variant += opInsn[l][op];
-                                    variant += opSize[l][op];
-                                    variant += w ? "_W" : "";
-                                    variant += p ? "_PRE_INDE" : "_POS_INDE";
+                                    variant += p ? (w ? "_PRE_INDE" : "") : "_POS_INDE";
                                     variant += u ? "_P" : "_M";
                                     variant += i ? "_IMM_OFF" : "_REG_OFF";
                                 }
@@ -436,10 +385,45 @@ public:
 
     void genOpcodes_TransImm9()
     {
+        for (uint32_t i = 0; i < 2; ++i)
+        {
+            for (uint32_t p = 0; p < 2; ++p)
+            {
+                for (uint32_t u = 0; u < 2; ++u)
+                {
+                    for (uint32_t b = 0; b < 2; ++b)
+                    {
+                        for (uint32_t w = 0; w < 2; ++w)
+                        {
+                            for (uint32_t l = 0; l < 2; ++l)
+                            {
+                                for (uint32_t imm = 0; imm < 16; ++imm)
+                                {
+                                    if (i && (imm & 1))
+                                        continue;
+                                    std::string insn = l ? "LDR" : "STR";
+                                    insn += b ? "B" : "";
+
+                                    std::string variant = "OP_" + insn;
+                                    variant += u ? "_P" : "_M";
+                                    variant += i ? shiftTypeName[(imm >> 1) & 3] : "";
+                                    variant += "_IMM_OFF";
+                                    variant += p ? (w ? "_PREIND" : "") : "_POSTIND";
+
+                                    uint32_t opcode = 0x400 | (i << 9) | (p << 8) | (u << 7) | (b << 6) | (w << 5) | (l << 4) | imm;
+                                    setInstruction(opcode, insn, variant);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     void genOpcodes_TransReg9()
     {
+        //genOpcodes_TransImm9();
     }
 
     void genOpcodes_Undefined()
@@ -590,6 +574,10 @@ public:
 #define ENCODING(expr)  genOpcodes_##expr()
 #include "ARMInstructions.h"    
 #undef ENCODING
+
+        // Special undocumented instructions emulated by DeSmuME
+        setInstruction(0x189, "STREX", "OP_STREX");
+        setInstruction(0x199, "LDREX", "OP_LDREX");
 
         printf("Instructions:\n");
         mInsn.dump();
