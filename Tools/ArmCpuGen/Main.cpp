@@ -4,92 +4,6 @@
 #include <unordered_set>
 #include <vector>
 
-/*
-ARM Binary Opcode Format
-|..3 ..................2 ..................1 ..................0|
-|1_0_9_8_7_6_5_4_3_2_1_0_9_8_7_6_5_4_3_2_1_0_9_8_7_6_5_4_3_2_1_0|
-|_Cond__|0_0_0|___Op__|S|__Rn___|__Rd___|__Shift__|Typ|0|__Rm___| DataProc
-|_Cond__|0_0_0|___Op__|S|__Rn___|__Rd___|__Rs___|0|Typ|1|__Rm___| DataProc
-|_Cond__|0_0_1|___Op__|S|__Rn___|__Rd___|_Shift_|___Immediate___| DataProc
-|_Cond__|0_0_1_1_0|P|1|0|_Field_|__Rd___|_Shift_|___Immediate___| PSR Imm
-|_Cond__|0_0_0_1_0|P|L|0|_Field_|__Rd___|0_0_0_0|0_0_0_0|__Rm___| PSR Reg
-|_Cond__|0_0_0_1_0_0_1_0_1_1_1_1_1_1_1_1_1_1_1_1|0_0|L|1|__Rn___| BX,BLX
-|1_1_1_0|0_0_0_1_0_0_1_0|_____immediate_________|0_1_1_1|_immed_| BKPT ARM9
-|_Cond__|0_0_0_1_0_1_1_0_1_1_1_1|__Rd___|1_1_1_1|0_0_0_1|__Rm___| CLZ  ARM9
-|_Cond__|0_0_0_1_0|Op_|0|__Rn___|__Rd___|0_0_0_0|0_1_0_1|__Rm___| QALU ARM9
-|_Cond__|0_0_0_0_0_0|A|S|__Rd___|__Rn___|__Rs___|1_0_0_1|__Rm___| Multiply
-|_Cond__|0_0_0_0_1|U|A|S|_RdHi__|_RdLo__|__Rs___|1_0_0_1|__Rm___| MulLong
-|_Cond__|0_0_0_1_0|Op_|0|Rd/RdHi|Rn/RdLo|__Rs___|1|y|x|0|__Rm___| MulHalfARM9
-|_Cond__|0_0_0_1_0|B|0_0|__Rn___|__Rd___|0_0_0_0|1_0_0_1|__Rm___| TransSwp12
-|_Cond__|0_0_0|P|U|0|W|L|__Rn___|__Rd___|0_0_0_0|1|S|H|1|__Rm___| TransReg10
-|_Cond__|0_0_0|P|U|1|W|L|__Rn___|__Rd___|OffsetH|1|S|H|1|OffsetL| TransImm10
-|_Cond__|0_1_0|P|U|B|W|L|__Rn___|__Rd___|_________Offset________| TransImm9
-|_Cond__|0_1_1|P|U|B|W|L|__Rn___|__Rd___|__Shift__|Typ|0|__Rm___| TransReg9
-|_Cond__|0_1_1|________________xxx____________________|1|__xxx__| Undefined
-|_Cond__|1_0_0|P|U|S|W|L|__Rn___|__________Register_List________| BlockTrans
-|_Cond__|1_0_1|L|___________________Offset______________________| B,BL,BLX
-|_Cond__|1_1_0|P|U|N|W|L|__Rn___|__CRd__|__CP#__|____Offset_____| CoDataTrans
-|_Cond__|1_1_0_0_0_1_0|L|__Rn___|__Rd___|__CP#__|_CPopc_|__CRm__| CoRR ARM9
-|_Cond__|1_1_1_0|_CPopc_|__CRn__|__CRd__|__CP#__|_CP__|0|__CRm__| CoDataOp
-|_Cond__|1_1_1_0|CPopc|L|__CRn__|__Rd___|__CP#__|_CP__|1|__CRm__| CoRegTrans
-|_Cond__|1_1_1_1|_____________Ignored_by_Processor______________| SWI
-*/
-
-/*
-Code Suffix Flags         Meaning
-0:   EQ     Z=1           equal (zero) (same)
-1:   NE     Z=0           not equal (nonzero) (not same)
-2:   CS/HS  C=1           unsigned higher or same (carry set)
-3:   CC/LO  C=0           unsigned lower (carry cleared)
-4:   MI     N=1           negative (minus)
-5:   PL     N=0           positive or zero (plus)
-6:   VS     V=1           overflow (V set)
-7:   VC     V=0           no overflow (V cleared)
-8:   HI     C=1 and Z=0   unsigned higher
-9:   LS     C=0 or Z=1    unsigned lower or same
-A:   GE     N=V           greater or equal
-B:   LT     N<>V          less than
-C:   GT     Z=0 and N=V   greater than
-D:   LE     Z=1 or N<>V   less or equal
-E:   AL     -             always (the "AL" suffix can be omitted)
-F:   NV     -             never (ARMv1,v2 only) (Reserved ARMv3 and up)
-*/
-enum CONDITION
-{
-    CONDITION_EQ,
-    CONDITION_NE,
-    CONDITION_CS,
-    CONDITION_CC,
-    CONDITION_MI,
-    CONDITION_PL,
-    CONDITION_VS,
-    CONDITION_VC,
-    CONDITION_HI,
-    CONDITION_LS,
-    CONDITION_GE,
-    CONDITION_LT,
-    CONDITION_GT,
-    CONDITION_LE,
-    CONDITION_AL,
-    CONDITION_NV,
-};
-
-static const char* conditionName[] =
-{
-    "EQ",   "NE",   "CS",   "CC",
-    "MI",   "PL",   "VS",   "VC",
-    "HI",   "LS",   "GE",   "LT",
-    "GT",   "LE",   "AL",   "NV",
-};
-
-static const char* opcodeALU[] =
-{
-    "AND",  "EOR",  "SUB",  "RSB",
-    "ADD",  "ADC",  "SBC",  "RSC",
-    "TST",  "TEQ",  "CMP",  "CMN",
-    "ORR",  "MOV",  "BIC",  "MVN",
-};
-
 static const char* shiftTypeName[] =
 {
     "_LSL", "_LSR", "_ASR", "_ROR",
@@ -147,6 +61,14 @@ public:
                         if (!s && test)
                             continue;
 
+                        static const char* opcodeALU[] =
+                        {
+                            "AND",  "EOR",  "SUB",  "RSB",
+                            "ADD",  "ADC",  "SBC",  "RSC",
+                            "TST",  "TEQ",  "CMP",  "CMN",
+                            "ORR",  "MOV",  "BIC",  "MVN",
+                        };
+
                         std::string insn = opcodeALU[op];
                         std::string variant = "OP_" + insn;
                         insn += s ? "S" : "";
@@ -161,16 +83,6 @@ public:
                 }
             }
         }
-    }
-
-    void genOpcodes_DataProcReg()
-    {
-        //genOpcodes_DataProcShift();
-    }
-
-    void genOpcodes_DataProcImm()
-    {
-        //genOpcodes_DataProcShift();
     }
 
     void genOpcodes_PSRImm()
@@ -201,11 +113,6 @@ public:
                 }
             }
         }
-    }
-
-    void genOpcodes_PSRReg()
-    {
-        //genOpcodes_PSRImm();
     }
 
     void genOpcodes_BX_BLX()
@@ -302,16 +209,6 @@ public:
         }
     }
 
-    void genOpcodes_MulLong()
-    {
-        //genOpcodes_Multiply();
-    }
-
-    void genOpcodes_MulHalf()
-    {
-        //genOpcodes_Multiply();
-    }
-
     void genOpcodes_TransSwp12()
     {
         setInstruction(0x109, "SWP", "OP_SWP");
@@ -378,11 +275,6 @@ public:
         }
     }
 
-    void genOpcodes_TransImm10()
-    {
-        //genOpcodes_TransReg10();
-    }
-
     void genOpcodes_TransImm9()
     {
         for (uint32_t i = 0; i < 2; ++i)
@@ -419,15 +311,6 @@ public:
                 }
             }
         }
-    }
-
-    void genOpcodes_TransReg9()
-    {
-        //genOpcodes_TransImm9();
-    }
-
-    void genOpcodes_Undefined()
-    {
     }
 
     void genOpcodes_BlockTrans()
@@ -521,10 +404,6 @@ public:
         }
     }
 
-    void genOpcodes_CoRR()
-    {
-    }
-
     void genOpcodes_CoDataOp()
     {
         for (uint32_t cpopc = 0; cpopc < 16; ++cpopc)
@@ -549,11 +428,6 @@ public:
         }
     }
 
-    void genOpcodes_CoRegTrans()
-    {
-        //genOpcodes_CoDataOp();
-    }
-
     void genOpcodes_SWI()
     {
         for (uint32_t ignored = 0; ignored < 256; ++ignored)
@@ -571,9 +445,32 @@ public:
         mVariant.add("OP_UND");
         mInsnTable.resize(4096, "OP_UND");
 
-#define ENCODING(expr)  genOpcodes_##expr()
-#include "ARMInstructions.h"    
-#undef ENCODING
+        genOpcodes_DataProcShift();
+        genOpcodes_PSRImm();
+        genOpcodes_BX_BLX();
+        if (ARMv5)
+        {
+            genOpcodes_BKPT();
+            genOpcodes_CLZ();
+            genOpcodes_QALU();
+        }
+        genOpcodes_Multiply();
+        if (ARMv5)
+        {
+            //genOpcodes_MulHalf();
+        }
+        genOpcodes_TransSwp12();
+        genOpcodes_TransReg10();
+        genOpcodes_TransImm9();
+        genOpcodes_BlockTrans();
+        genOpcodes_B_BL_BLX();
+        genOpcodes_CoDataTrans();
+        if (ARMv5)
+        {
+            //genOpcodes_CoRR();
+        }
+        genOpcodes_CoDataOp();
+        genOpcodes_SWI();
 
         // Special undocumented instructions emulated by DeSmuME
         setInstruction(0x189, "STREX", "OP_STREX");
