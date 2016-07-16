@@ -30,16 +30,41 @@ public:
         }
     }
 
-    void setInstruction(uint32_t opcode, const std::string& insn, const std::string& variant)
+    struct Instruction
     {
-        mInsn.add(insn);
-        mVariant.add(variant);
-        if (mInsnTable[opcode] != "OP_UND")
+        uint32_t        opcode;
+        std::string     variant;
+        std::string     name;
+
+        Instruction()
+            : opcode(0xffffffff)
         {
-            printf("Can't assign %s to entry 0x%03x, %s already defined\n", variant.c_str(), opcode, mInsnTable[opcode].c_str());
+        }
+
+        Instruction(uint32_t _opcode, const std::string& _variant, const std::string& _name)
+            : opcode(_opcode)
+            , variant(_variant)
+            , name(_name)
+        {
+        }
+    };
+
+    void setInstruction(const Instruction& insn)
+    {
+        std::string variant = "OP_" + insn.variant;
+        mInsn.add(insn.name);
+        mVariant.add(variant);
+        if (insn.opcode > static_cast<uint32_t>(mVariantTable.size()))
+        {
+            printf("Invalid opcode 0x%03x, can't not exceeed 0x%03x\n", insn.opcode, static_cast<uint32_t>(mVariantTable.size() - 1));
             assert(false);
         }
-        mInsnTable[opcode] = variant;
+        if (mVariantTable[insn.opcode] != "OP_UND")
+        {
+            printf("Can't assign %s to entry 0x%03x, %s already defined\n", variant.c_str(), insn.opcode, mVariantTable[insn.opcode].c_str());
+            assert(false);
+        }
+        mVariantTable[insn.opcode] = variant;
     }
 
     void genOpcodes_B_BL_BLX()
@@ -48,29 +73,31 @@ public:
         {
             for (uint32_t imm = 0; imm < 256; ++imm)
             {
-                std::string insn = "B";
-                insn += l ? "L" : "";
-                std::string variant = "OP_" + insn;
-                uint32_t opcode = 0xa00 | (l << 8) | imm;
-                setInstruction(opcode, insn, variant);
+                Instruction insn;
+                insn.name = "B";
+                insn.name += l ? "L" : "";
+                insn.variant = insn.name;
+                insn.opcode = 0xa00 | (l << 8) | imm;
+                setInstruction(insn);
             }
         }
     }
 
     void genOpcodes_BX_BLX()
     {
-        setInstruction(0x121, "BX", "OP_BX");
-        setInstruction(0x123, "BLX", "OP_BLX_REG");
+        setInstruction(Instruction(0x121, "BX", "BX"));
+        setInstruction(Instruction(0x123, "BLX_REG", "BLX"));
     }
 
     void genOpcodes_SWI()
     {
         for (uint32_t ignored = 0; ignored < 256; ++ignored)
         {
-            std::string insn = "SWI";
-            std::string variant = "OP_" + insn;
-            uint32_t opcode = 0xf00 | ignored;
-            setInstruction(opcode, insn, variant);
+            Instruction insn;
+            insn.name = "SWI";
+            insn.variant = insn.name;
+            insn.opcode = 0xf00 | ignored;
+            setInstruction(insn);
         }
     }
 
@@ -78,7 +105,7 @@ public:
     {
         if (ARMv5)
         {
-            setInstruction(0x127, "BLX", "OP_BKPT");
+            setInstruction(Instruction(0x127, "BKPT", "BKPT"));
         }
     }
 
@@ -109,16 +136,17 @@ public:
                             "ORR",  "MOV",  "BIC",  "MVN",
                         };
 
-                        std::string insn = opcodeALU[op];
-                        std::string variant = "OP_" + insn;
-                        insn += s ? "S" : "";
-                        variant += (s && !test) ? "_S" : "";
-                        variant += !i ? shiftTypeName[type] : "";
-                        variant += (!i && r) ? "_REG" : "_IMM";
-                        variant += i ? "_VAL" : "";
+                        Instruction insn;
+                        insn.name = opcodeALU[op];
+                        insn.variant = insn.name;
+                        insn.name += s ? "S" : "";
+                        insn.variant += (s && !test) ? "_S" : "";
+                        insn.variant += !i ? shiftTypeName[type] : "";
+                        insn.variant += (!i && r) ? "_REG" : "_IMM";
+                        insn.variant += i ? "_VAL" : "";
 
-                        uint32_t opcode = 0x000 | (i << 9) | (op << 5) | (s << 4) | imm;
-                        setInstruction(opcode, insn, variant);
+                        insn.opcode = 0x000 | (i << 9) | (op << 5) | (s << 4) | imm;
+                        setInstruction(insn);
                     }
                 }
             }
@@ -144,8 +172,9 @@ public:
                 {
                     for (uint32_t x = 0; x < 2; ++x)
                     {
-                        std::string insn = opInsn[op];
-                        std::string variant = "OP_" + insn;
+                        Instruction insn;
+                        insn.name = opInsn[op];
+                        insn.variant = insn.name;
 
                         uint32_t operand = 0;
                         if (op & 8)
@@ -154,16 +183,16 @@ public:
                                 continue;
                             if (op == 9)
                             {
-                                insn = x ? "SMULW" : "SMLAW";
-                                variant = "OP_" + insn;
+                                insn.name = x ? "SMULW" : "SMLAW";
+                                insn.variant = insn.name;
                             }
                             else
                             {
-                                insn += x ? "T" : "B";
-                                variant += x ? "_T" : "_B";
+                                insn.name += x ? "T" : "B";
+                                insn.variant += x ? "_T" : "_B";
                             }
-                            insn += y ? "T" : "B";
-                            variant += y ? "_T" : "_B";
+                            insn.name += y ? "T" : "B";
+                            insn.variant += y ? "_T" : "_B";
                             operand = 0x008 | (y << 2) | (x << 1);
                         }
                         else
@@ -175,12 +204,12 @@ public:
 
                         if (s)
                         {
-                            insn += "S";
-                            variant += "_S";
+                            insn.name += "S";
+                            insn.variant += "_S";
                         }
 
-                        uint32_t opcode = 0x000 | (op << 5) | (s << 4) | operand;
-                        setInstruction(opcode, insn, variant);
+                        insn.opcode = 0x000 | (op << 5) | (s << 4) | operand;
+                        setInstruction(insn);
                     }
                 }
             }
@@ -191,7 +220,7 @@ public:
     {
         if (ARMv5)
         {
-            setInstruction(0x161, "CLZ", "OP_CLZ");
+            setInstruction(Instruction(0x161, "CLZ", "CLZ"));
         }
     }
 
@@ -205,11 +234,12 @@ public:
             };
             for (uint32_t op = 0; op < 4; ++op)
             {
-                std::string insn = opInsn[op];
-                std::string variant = "OP_" + insn;
+                Instruction insn;
+                insn.name = opInsn[op];
+                insn.variant = insn.name;
 
-                uint32_t opcode = 0x105 | (op << 5);
-                setInstruction(opcode, insn, variant);
+                insn.opcode = 0x105 | (op << 5);
+                setInstruction(insn);
             }
         }
     }
@@ -229,15 +259,14 @@ public:
                         if (!i && imm)
                             continue;
 
-                        std::string insn = op ? "MSR" : "MRS";
+                        Instruction insn;
+                        insn.name = op ? "MSR" : "MRS";
+                        insn.variant = insn.name;
+                        insn.variant += psr ? "_SPSR" : "_CPSR";
+                        insn.variant += i ? "_IMM_VAL" : "";
 
-                        std::string variant = "OP_";
-                        variant += insn;
-                        variant += psr ? "_SPSR" : "_CPSR";
-                        variant += i ? "_IMM_VAL" : "";
-
-                        uint32_t opcode = 0x100 | (i << 9) | (psr << 6) | (op << 5) | imm;
-                        setInstruction(opcode, insn, variant);
+                        insn.opcode = 0x100 | (i << 9) | (psr << 6) | (op << 5) | imm;
+                        setInstruction(insn);
                     }
                 }
             }
@@ -262,17 +291,19 @@ public:
                                 {
                                     if (i && (imm & 1))
                                         continue;
-                                    std::string insn = l ? "LDR" : "STR";
-                                    insn += b ? "B" : "";
 
-                                    std::string variant = "OP_" + insn;
-                                    variant += u ? "_P" : "_M";
-                                    variant += i ? shiftTypeName[(imm >> 1) & 3] : "";
-                                    variant += "_IMM_OFF";
-                                    variant += p ? (w ? "_PREIND" : "") : "_POSTIND";
+                                    Instruction insn;
+                                    insn.name = l ? "LDR" : "STR";
+                                    insn.name += b ? "B" : "";
 
-                                    uint32_t opcode = 0x400 | (i << 9) | (p << 8) | (u << 7) | (b << 6) | (w << 5) | (l << 4) | imm;
-                                    setInstruction(opcode, insn, variant);
+                                    insn.variant = insn.name;
+                                    insn.variant += u ? "_P" : "_M";
+                                    insn.variant += i ? shiftTypeName[(imm >> 1) & 3] : "";
+                                    insn.variant += "_IMM_OFF";
+                                    insn.variant += p ? (w ? "_PREIND" : "") : "_POSTIND";
+
+                                    insn.opcode = 0x400 | (i << 9) | (p << 8) | (u << 7) | (b << 6) | (w << 5) | (l << 4) | imm;
+                                    setInstruction(insn);
                                 }
                             }
                         }
@@ -312,28 +343,29 @@ public:
                                 if (!op)
                                     continue;
 
-                                std::string insn = opInsn[l][op];
-                                insn += opSize[l][op];
+                                Instruction insn;
+                                insn.name = opInsn[l][op];
+                                insn.name += opSize[l][op];
 
-                                std::string variant = "OP_" + insn;
-                                insn += w ? "W" : "";
+                                insn.variant = insn.name;
+                                insn.name += w ? "W" : "";
                                 if ((op & 2) && !l)
                                 {
-                                    variant = "OP_LDR";
-                                    variant += opSize[l][op];
-                                    variant += "_STR";
-                                    variant += opSize[l][op];
-                                    variant += p ? "_OFFSET_PRE_INDEX" : "_POST_INDEX";
+                                    insn.variant = "LDR";
+                                    insn.variant += opSize[l][op];
+                                    insn.variant += "_STR";
+                                    insn.variant += opSize[l][op];
+                                    insn.variant += p ? "_OFFSET_PRE_INDEX" : "_POST_INDEX";
                                 }
                                 else
                                 {
-                                    variant += p ? (w ? "_PRE_INDE" : "") : "_POS_INDE";
-                                    variant += u ? "_P" : "_M";
-                                    variant += i ? "_IMM_OFF" : "_REG_OFF";
+                                    insn.variant += p ? (w ? "_PRE_INDE" : "") : "_POS_INDE";
+                                    insn.variant += u ? "_P" : "_M";
+                                    insn.variant += i ? "_IMM_OFF" : "_REG_OFF";
                                 }
 
-                                uint32_t opcode = 0x009 | (p << 8) | (u << 7) | (i << 6) | (w << 5) | (l << 4) | (op << 1);
-                                setInstruction(opcode, insn, variant);
+                                insn.opcode = 0x009 | (p << 8) | (u << 7) | (i << 6) | (w << 5) | (l << 4) | (op << 1);
+                                setInstruction(insn);
                             }
                         }
                     }
@@ -356,20 +388,21 @@ public:
                         {
                             for (uint32_t imm = 0; imm < 16; ++imm)
                             {
-                                std::string insn = l ? "LDM" : "STM";
-                                insn += u ? "I" : "D";
-                                insn += p ? "B" : "A";
-                                insn += s ? "2" : "";
+                                Instruction insn;
+                                insn.name = l ? "LDM" : "STM";
+                                insn.name += u ? "I" : "D";
+                                insn.name += p ? "B" : "A";
+                                insn.name += s ? "2" : "";
 
-                                std::string variant = "OP_" + insn;
+                                insn.variant = insn.name;
                                 if (w)
                                 {
-                                    insn += "W";
-                                    variant += "_W";
+                                    insn.name += "W";
+                                    insn.variant += "_W";
                                 }
 
-                                uint32_t opcode = 0x800 | (p << 8) | (u << 7) | (s << 6) | (w << 5) | (l << 4) | imm;
-                                setInstruction(opcode, insn, variant);
+                                insn.opcode = 0x800 | (p << 8) | (u << 7) | (s << 6) | (w << 5) | (l << 4) | imm;
+                                setInstruction(insn);
                             }
                         }
                     }
@@ -380,8 +413,8 @@ public:
 
     void genOpcodes_TransSwp12()
     {
-        setInstruction(0x109, "SWP", "OP_SWP");
-        setInstruction(0x149, "SWPB", "OP_SWPB");
+        setInstruction(Instruction(0x109, "SWP", "SWP"));
+        setInstruction(Instruction(0x149, "SWPB", "SWPB"));
     }
 
     void genOpcodes_CoDataTrans()
@@ -398,24 +431,25 @@ public:
                         {
                             for (uint32_t imm = 0; imm < 16; ++imm)
                             {
-                                std::string insn = l ? "LDC" : "STC";
-                                std::string variant = "OP_" + insn;
+                                Instruction insn;
+                                insn.name = l ? "LDC" : "STC";
+                                insn.variant = insn.name;
 
-                                insn += w ? "W" : "";
-                                insn += ARMv5 ? "2" : "";
+                                insn.name += w ? "W" : "";
+                                insn.name += ARMv5 ? "2" : "";
                                 if (!w && !p)
                                 {
-                                    variant += "_OPTION";
+                                    insn.variant += "_OPTION";
                                 }
                                 else
                                 {
-                                    variant += u ? "_P" : "_M";
-                                    //variant += "_P";
-                                    variant += w ? (p ? "_PREIND" : "_POSTIND") : "_IMM_OFF";
+                                    insn.variant += u ? "_P" : "_M";
+                                    //insn.variant += "_P";
+                                    insn.variant += w ? (p ? "_PREIND" : "_POSTIND") : "_IMM_OFF";
                                 }
 
-                                uint32_t opcode = 0xc00 | (p << 8) | (u << 7) | (n << 6) | (w << 5) | (l << 4) | imm;
-                                setInstruction(opcode, insn, variant);
+                                insn.opcode = 0xc00 | (p << 8) | (u << 7) | (n << 6) | (w << 5) | (l << 4) | imm;
+                                setInstruction(insn);
                             }
                         }
                     }
@@ -432,17 +466,18 @@ public:
             {
                 for (uint32_t trans = 0; trans < 2; ++trans)
                 {
-                    std::string insn;
+                    Instruction insn;
+                    insn.name;
                     if (trans)
-                        insn = (cpopc & 1) ? "MRC" : "MCR";
+                        insn.name = (cpopc & 1) ? "MRC" : "MCR";
                     else
-                        insn = "CDP";
+                        insn.name = "CDP";
 
-                    std::string variant = "OP_" + insn;
-                    insn += ARMv5 ? "2" : "";
+                    insn.variant = insn.name;
+                    insn.name += ARMv5 ? "2" : "";
 
-                    uint32_t opcode = 0xe00 | (cpopc << 4) | (cp << 1) | trans;
-                    setInstruction(opcode, insn, variant);
+                    insn.opcode = 0xe00 | (cpopc << 4) | (cp << 1) | trans;
+                    setInstruction(insn);
                 }
             }
         }
@@ -451,15 +486,15 @@ public:
     void genOpcodes_Undocumented()
     {
         // Special undocumented instructions emulated by DeSmuME
-        setInstruction(0x189, "STREX", "OP_STREX");
-        setInstruction(0x199, "LDREX", "OP_LDREX");
+        setInstruction(Instruction(0x189, "STREX", "STREX"));
+        setInstruction(Instruction(0x199, "LDREX", "LDREX"));
     }
 
     void genOpcodes()
     {
         mInsn.add("UND");
         mVariant.add("OP_UND");
-        mInsnTable.resize(4096, "OP_UND");
+        mVariantTable.resize(4096, "OP_UND");
 
         genOpcodes_B_BL_BLX();
         genOpcodes_BX_BLX();
@@ -501,7 +536,7 @@ public:
 
     const std::vector<std::string>& getInsnTable() const
     {
-        return mInsnTable;
+        return mVariantTable;
     }
 
 private:
@@ -533,7 +568,7 @@ private:
     bool                        ARMv5TE;
     Dictionary                  mInsn;
     Dictionary                  mVariant;
-    std::vector<std::string>    mInsnTable;
+    std::vector<std::string>    mVariantTable;
 };
 
 bool assertSame(const std::vector<std::string>& expected, const std::vector<std::string>& result)
