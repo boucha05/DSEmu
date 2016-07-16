@@ -42,6 +42,46 @@ public:
         mInsnTable[opcode] = variant;
     }
 
+    void genOpcodes_B_BL_BLX()
+    {
+        for (uint32_t l = 0; l < 2; ++l)
+        {
+            for (uint32_t imm = 0; imm < 256; ++imm)
+            {
+                std::string insn = "B";
+                insn += l ? "L" : "";
+                std::string variant = "OP_" + insn;
+                uint32_t opcode = 0xa00 | (l << 8) | imm;
+                setInstruction(opcode, insn, variant);
+            }
+        }
+    }
+
+    void genOpcodes_BX_BLX()
+    {
+        setInstruction(0x121, "BX", "OP_BX");
+        setInstruction(0x123, "BLX", "OP_BLX_REG");
+    }
+
+    void genOpcodes_SWI()
+    {
+        for (uint32_t ignored = 0; ignored < 256; ++ignored)
+        {
+            std::string insn = "SWI";
+            std::string variant = "OP_" + insn;
+            uint32_t opcode = 0xf00 | ignored;
+            setInstruction(opcode, insn, variant);
+        }
+    }
+
+    void genOpcodes_BKPT()
+    {
+        if (ARMv5)
+        {
+            setInstruction(0x127, "BLX", "OP_BKPT");
+        }
+    }
+
     void genOpcodes_DataProcShift()
     {
         for (uint32_t i = 0; i < 2; ++i)
@@ -82,68 +122,6 @@ public:
                     }
                 }
             }
-        }
-    }
-
-    void genOpcodes_PSRImm()
-    {
-        for (uint32_t i = 0; i < 2; ++i)
-        {
-            for (uint32_t psr = 0; psr < 2; ++psr)
-            {
-                for (uint32_t op = 0; op < 2; ++op)
-                {
-                    for (uint32_t imm = 0; imm < 16; ++imm)
-                    {
-                        if (!op && (imm || i))
-                            continue;
-                        if (!i && imm)
-                            continue;
-
-                        std::string insn = op ? "MSR" : "MRS";
-
-                        std::string variant = "OP_";
-                        variant += insn;
-                        variant += psr ? "_SPSR" : "_CPSR";
-                        variant += i ? "_IMM_VAL" : "";
-
-                        uint32_t opcode = 0x100 | (i << 9) | (psr << 6) | (op << 5) | imm;
-                        setInstruction(opcode, insn, variant);
-                    }
-                }
-            }
-        }
-    }
-
-    void genOpcodes_BX_BLX()
-    {
-        setInstruction(0x121, "BX", "OP_BX");
-        setInstruction(0x123, "BLX", "OP_BLX_REG");
-    }
-
-    void genOpcodes_BKPT()
-    {
-        setInstruction(0x127, "BLX", "OP_BKPT");
-    }
-
-    void genOpcodes_CLZ()
-    {
-        setInstruction(0x161, "CLZ", "OP_CLZ");
-    }
-
-    void genOpcodes_QALU()
-    {
-        static const char* opInsn[4] =
-        {
-            "QADD", "QSUB", "QDADD", "QDSUB"
-        };
-        for (uint32_t op = 0; op < 4; ++op)
-        {
-            std::string insn = opInsn[op];
-            std::string variant = "OP_" + insn;
-
-            uint32_t opcode = 0x105 | (op << 5);
-            setInstruction(opcode, insn, variant);
         }
     }
 
@@ -209,10 +187,99 @@ public:
         }
     }
 
-    void genOpcodes_TransSwp12()
+    void genOpcodes_CLZ()
     {
-        setInstruction(0x109, "SWP", "OP_SWP");
-        setInstruction(0x149, "SWPB", "OP_SWPB");
+        if (ARMv5)
+        {
+            setInstruction(0x161, "CLZ", "OP_CLZ");
+        }
+    }
+
+    void genOpcodes_QALU()
+    {
+        if (ARMv5)
+        {
+            static const char* opInsn[4] =
+            {
+                "QADD", "QSUB", "QDADD", "QDSUB"
+            };
+            for (uint32_t op = 0; op < 4; ++op)
+            {
+                std::string insn = opInsn[op];
+                std::string variant = "OP_" + insn;
+
+                uint32_t opcode = 0x105 | (op << 5);
+                setInstruction(opcode, insn, variant);
+            }
+        }
+    }
+
+    void genOpcodes_PSRImm()
+    {
+        for (uint32_t i = 0; i < 2; ++i)
+        {
+            for (uint32_t psr = 0; psr < 2; ++psr)
+            {
+                for (uint32_t op = 0; op < 2; ++op)
+                {
+                    for (uint32_t imm = 0; imm < 16; ++imm)
+                    {
+                        if (!op && (imm || i))
+                            continue;
+                        if (!i && imm)
+                            continue;
+
+                        std::string insn = op ? "MSR" : "MRS";
+
+                        std::string variant = "OP_";
+                        variant += insn;
+                        variant += psr ? "_SPSR" : "_CPSR";
+                        variant += i ? "_IMM_VAL" : "";
+
+                        uint32_t opcode = 0x100 | (i << 9) | (psr << 6) | (op << 5) | imm;
+                        setInstruction(opcode, insn, variant);
+                    }
+                }
+            }
+        }
+    }
+
+    void genOpcodes_TransImm9()
+    {
+        for (uint32_t i = 0; i < 2; ++i)
+        {
+            for (uint32_t p = 0; p < 2; ++p)
+            {
+                for (uint32_t u = 0; u < 2; ++u)
+                {
+                    for (uint32_t b = 0; b < 2; ++b)
+                    {
+                        for (uint32_t w = 0; w < 2; ++w)
+                        {
+                            for (uint32_t l = 0; l < 2; ++l)
+                            {
+                                for (uint32_t imm = 0; imm < 16; ++imm)
+                                {
+                                    if (i && (imm & 1))
+                                        continue;
+                                    std::string insn = l ? "LDR" : "STR";
+                                    insn += b ? "B" : "";
+
+                                    std::string variant = "OP_" + insn;
+                                    variant += u ? "_P" : "_M";
+                                    variant += i ? shiftTypeName[(imm >> 1) & 3] : "";
+                                    variant += "_IMM_OFF";
+                                    variant += p ? (w ? "_PREIND" : "") : "_POSTIND";
+
+                                    uint32_t opcode = 0x400 | (i << 9) | (p << 8) | (u << 7) | (b << 6) | (w << 5) | (l << 4) | imm;
+                                    setInstruction(opcode, insn, variant);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     void genOpcodes_TransReg10()
@@ -275,44 +342,6 @@ public:
         }
     }
 
-    void genOpcodes_TransImm9()
-    {
-        for (uint32_t i = 0; i < 2; ++i)
-        {
-            for (uint32_t p = 0; p < 2; ++p)
-            {
-                for (uint32_t u = 0; u < 2; ++u)
-                {
-                    for (uint32_t b = 0; b < 2; ++b)
-                    {
-                        for (uint32_t w = 0; w < 2; ++w)
-                        {
-                            for (uint32_t l = 0; l < 2; ++l)
-                            {
-                                for (uint32_t imm = 0; imm < 16; ++imm)
-                                {
-                                    if (i && (imm & 1))
-                                        continue;
-                                    std::string insn = l ? "LDR" : "STR";
-                                    insn += b ? "B" : "";
-
-                                    std::string variant = "OP_" + insn;
-                                    variant += u ? "_P" : "_M";
-                                    variant += i ? shiftTypeName[(imm >> 1) & 3] : "";
-                                    variant += "_IMM_OFF";
-                                    variant += p ? (w ? "_PREIND" : "") : "_POSTIND";
-
-                                    uint32_t opcode = 0x400 | (i << 9) | (p << 8) | (u << 7) | (b << 6) | (w << 5) | (l << 4) | imm;
-                                    setInstruction(opcode, insn, variant);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     void genOpcodes_BlockTrans()
     {
         for (uint32_t p = 0; p < 2; ++p)
@@ -349,19 +378,10 @@ public:
         }
     }
 
-    void genOpcodes_B_BL_BLX()
+    void genOpcodes_TransSwp12()
     {
-        for (uint32_t l = 0; l < 2; ++l)
-        {
-            for (uint32_t imm = 0; imm < 256; ++imm)
-            {
-                std::string insn = "B";
-                insn += l ? "L" : "";
-                std::string variant = "OP_" + insn;
-                uint32_t opcode = 0xa00 | (l << 8) | imm;
-                setInstruction(opcode, insn, variant);
-            }
-        }
+        setInstruction(0x109, "SWP", "OP_SWP");
+        setInstruction(0x149, "SWPB", "OP_SWPB");
     }
 
     void genOpcodes_CoDataTrans()
@@ -428,15 +448,11 @@ public:
         }
     }
 
-    void genOpcodes_SWI()
+    void genOpcodes_Undocumented()
     {
-        for (uint32_t ignored = 0; ignored < 256; ++ignored)
-        {
-            std::string insn = "SWI";
-            std::string variant = "OP_" + insn;
-            uint32_t opcode = 0xf00 | ignored;
-            setInstruction(opcode, insn, variant);
-        }
+        // Special undocumented instructions emulated by DeSmuME
+        setInstruction(0x189, "STREX", "OP_STREX");
+        setInstruction(0x199, "LDREX", "OP_LDREX");
     }
 
     void genOpcodes()
@@ -445,36 +461,22 @@ public:
         mVariant.add("OP_UND");
         mInsnTable.resize(4096, "OP_UND");
 
-        genOpcodes_DataProcShift();
-        genOpcodes_PSRImm();
-        genOpcodes_BX_BLX();
-        if (ARMv5)
-        {
-            genOpcodes_BKPT();
-            genOpcodes_CLZ();
-            genOpcodes_QALU();
-        }
-        genOpcodes_Multiply();
-        if (ARMv5)
-        {
-            //genOpcodes_MulHalf();
-        }
-        genOpcodes_TransSwp12();
-        genOpcodes_TransReg10();
-        genOpcodes_TransImm9();
-        genOpcodes_BlockTrans();
         genOpcodes_B_BL_BLX();
-        genOpcodes_CoDataTrans();
-        if (ARMv5)
-        {
-            //genOpcodes_CoRR();
-        }
-        genOpcodes_CoDataOp();
+        genOpcodes_BX_BLX();
         genOpcodes_SWI();
-
-        // Special undocumented instructions emulated by DeSmuME
-        setInstruction(0x189, "STREX", "OP_STREX");
-        setInstruction(0x199, "LDREX", "OP_LDREX");
+        genOpcodes_BKPT();
+        genOpcodes_DataProcShift();
+        genOpcodes_Multiply();
+        genOpcodes_CLZ();
+        genOpcodes_QALU();
+        genOpcodes_PSRImm();
+        genOpcodes_TransImm9();
+        genOpcodes_TransReg10();
+        genOpcodes_BlockTrans();
+        genOpcodes_TransSwp12();
+        genOpcodes_CoDataTrans();
+        genOpcodes_CoDataOp();
+        genOpcodes_Undocumented();
 
         printf("Instructions:\n");
         mInsn.dump();
