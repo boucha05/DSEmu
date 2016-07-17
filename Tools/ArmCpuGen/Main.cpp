@@ -35,24 +35,30 @@ public:
         uint32_t        opcode;
         std::string     variant;
         std::string     name;
+        std::string     suffix;
+        std::string     addr;
 
         Instruction()
             : opcode(0xffffffff)
         {
         }
 
-        Instruction(uint32_t _opcode, const std::string& _variant, const std::string& _name)
+        Instruction(uint32_t _opcode, const std::string& _variant, const std::string& _name, std::string _addr)
             : opcode(_opcode)
             , variant(_variant)
             , name(_name)
+            , addr(_addr)
         {
         }
     };
 
     void setInstruction(const Instruction& insn)
     {
+        assert(!insn.addr.empty());
+        std::string addr = insn.addr;
         std::string variant = "OP_" + insn.variant;
-        mInsn.add(insn.name);
+        mInsn.add(insn.name + insn.suffix);
+        mAddr.add(addr);
         mVariant.add(variant);
         if (insn.opcode > static_cast<uint32_t>(mVariantTable.size()))
         {
@@ -64,6 +70,9 @@ public:
             printf("Can't assign %s to entry 0x%03x, %s already defined\n", variant.c_str(), insn.opcode, mVariantTable[insn.opcode].c_str());
             assert(false);
         }
+        mNameTable[insn.opcode] = insn.name;
+        mSuffixTable[insn.opcode] = insn.suffix;
+        mAddrTable[insn.opcode] = insn.addr;
         mVariantTable[insn.opcode] = variant;
     }
 
@@ -76,6 +85,7 @@ public:
                 Instruction insn;
                 insn.name = "B";
                 insn.name += l ? "L" : "";
+                insn.addr = "BRANCH_OFFSET";
                 insn.variant = insn.name;
                 insn.opcode = 0xa00 | (l << 8) | imm;
                 setInstruction(insn);
@@ -85,8 +95,8 @@ public:
 
     void genOpcodes_BX_BLX()
     {
-        setInstruction(Instruction(0x121, "BX", "BX"));
-        setInstruction(Instruction(0x123, "BLX_REG", "BLX"));
+        setInstruction(Instruction(0x121, "BX", "BX", "BRANCH_REG"));
+        setInstruction(Instruction(0x123, "BLX_REG", "BLX", "BRANCH_REG"));
     }
 
     void genOpcodes_SWI()
@@ -95,6 +105,7 @@ public:
         {
             Instruction insn;
             insn.name = "SWI";
+            insn.addr = "SWI";
             insn.variant = insn.name;
             insn.opcode = 0xf00 | ignored;
             setInstruction(insn);
@@ -105,7 +116,7 @@ public:
     {
         if (ARMv5)
         {
-            setInstruction(Instruction(0x127, "BKPT", "BKPT"));
+            setInstruction(Instruction(0x127, "BKPT", "BKPT", "BKPT_IMM"));
         }
     }
 
@@ -122,6 +133,7 @@ public:
                         uint32_t r = imm & 1;
                         uint32_t type = (imm >> 1) & 3;
                         bool test = (op >= 0x8) && (op <= 0xb);
+                        bool unary = (op == 0xd) || (op == 0xf);
 
                         if (!i && r && (imm & 8))
                             continue;
@@ -139,7 +151,12 @@ public:
                         Instruction insn;
                         insn.name = opcodeALU[op];
                         insn.variant = insn.name;
-                        insn.name += s ? "S" : "";
+                        insn.suffix = s ? "S" : "";
+                        insn.addr = "ALU";
+                        insn.addr += test ? "" : "_RD";
+                        insn.addr += unary ? "" : "_RN";
+                        insn.addr += (!i && r) ? "_REG" : "_IMM";
+                        insn.addr += !i ? shiftTypeName[type] : "";
                         insn.variant += (s && !test) ? "_S" : "";
                         insn.variant += !i ? shiftTypeName[type] : "";
                         insn.variant += (!i && r) ? "_REG" : "_IMM";
@@ -162,6 +179,13 @@ public:
             "SMLA", "", "SMLAL", "SMUL",
             nullptr, nullptr, nullptr, nullptr
         };
+        static const char* opAddr[16] =
+        {
+            "MUL_RD_RM_RS", "MUL_RD_RM_RS_RN", nullptr, nullptr,
+            "MUL_RDLO_RDHI_RM_RS", "MUL_RDLO_RDHI_RM_RS", "MUL_RDLO_RDHI_RM_RS", "MUL_RDLO_RDHI_RM_RS",
+            "MUL_RD_RM_RS_RN", "", "MUL_RD_RM_RS_RN", "MUL_RD_RM_RS",
+            nullptr, nullptr, nullptr, nullptr
+        };
         for (uint32_t op = 0; op < 16; ++op)
         {
             if (!opInsn[op])
@@ -174,16 +198,19 @@ public:
                     {
                         Instruction insn;
                         insn.name = opInsn[op];
+                        insn.addr = opAddr[op];
                         insn.variant = insn.name;
 
                         uint32_t operand = 0;
-                        if (op & 8)
+                        bool half = (op & 8) != 0;
+                        if (half)
                         {
                             if (s)
                                 continue;
                             if (op == 9)
                             {
                                 insn.name = x ? "SMULW" : "SMLAW";
+                                insn.addr = x ? "MUL_RD_RM_RS" : "MUL_RD_RM_RS_RN";
                                 insn.variant = insn.name;
                             }
                             else
@@ -197,15 +224,14 @@ public:
                         }
                         else
                         {
+                            if (s)
+                            {
+                                insn.suffix += "S";
+                                insn.variant += "_S";
+                            }
                             operand = 0x009;
                             if (y || x)
                                 continue;
-                        }
-
-                        if (s)
-                        {
-                            insn.name += "S";
-                            insn.variant += "_S";
                         }
 
                         insn.opcode = 0x000 | (op << 5) | (s << 4) | operand;
@@ -220,7 +246,7 @@ public:
     {
         if (ARMv5)
         {
-            setInstruction(Instruction(0x161, "CLZ", "CLZ"));
+            setInstruction(Instruction(0x161, "CLZ", "CLZ", "CLZ_RD_RM"));
         }
     }
 
@@ -236,6 +262,7 @@ public:
             {
                 Instruction insn;
                 insn.name = opInsn[op];
+                insn.addr = "QALU_RD_RM_RN";
                 insn.variant = insn.name;
 
                 insn.opcode = 0x105 | (op << 5);
@@ -261,6 +288,8 @@ public:
 
                         Instruction insn;
                         insn.name = op ? "MSR" : "MRS";
+                        insn.addr = op ? "MSR" : "MRS";
+                        insn.addr += op ? i ? "_IMM" : "_REG" : "";
                         insn.variant = insn.name;
                         insn.variant += psr ? "_SPSR" : "_CPSR";
                         insn.variant += i ? "_IMM_VAL" : "";
@@ -292,13 +321,23 @@ public:
                                     if (i && (imm & 1))
                                         continue;
 
+                                    uint32_t type = (imm >> 1) & 3;
+
                                     Instruction insn;
                                     insn.name = l ? "LDR" : "STR";
-                                    insn.name += b ? "B" : "";
+                                    insn.suffix += b ? "B" : "";
+                                    insn.suffix += (!p && w) ? "T" : "";
+                                    insn.addr = l ? "LDR" : "STR";
+                                    insn.addr += p ? "_PRE" : "_POST";
+                                    insn.addr += (p && w) ? "_WBACK" : "";
+                                    insn.addr += u ? "_ADD" : "_SUB";
+                                    insn.addr += i ? "_REG" : "_IMM";
+                                    insn.addr += i ? shiftTypeName[type] : "";
 
                                     insn.variant = insn.name;
+                                    insn.variant += b ? "B" : "";
                                     insn.variant += u ? "_P" : "_M";
-                                    insn.variant += i ? shiftTypeName[(imm >> 1) & 3] : "";
+                                    insn.variant += i ? shiftTypeName[type] : "";
                                     insn.variant += "_IMM_OFF";
                                     insn.variant += p ? (w ? "_PREIND" : "") : "_POSTIND";
 
@@ -345,10 +384,16 @@ public:
 
                                 Instruction insn;
                                 insn.name = opInsn[l][op];
-                                insn.name += opSize[l][op];
+                                insn.suffix += opSize[l][op];
+                                insn.addr = opInsn[l][op];
+                                insn.addr += "_EX";
+                                insn.addr += p ? "_PRE" : "_POST";
+                                insn.addr += (p && w) ? "_WBACK" : "";
+                                insn.addr += u ? "_ADD" : "_SUB";
+                                insn.addr += i ? "_IMM" : "_REG";
 
-                                insn.variant = insn.name;
-                                insn.name += w ? "W" : "";
+                                insn.variant = opInsn[l][op];
+                                insn.variant += opSize[l][op];
                                 if ((op & 2) && !l)
                                 {
                                     insn.variant = "LDR";
@@ -390,16 +435,19 @@ public:
                             {
                                 Instruction insn;
                                 insn.name = l ? "LDM" : "STM";
-                                insn.name += u ? "I" : "D";
-                                insn.name += p ? "B" : "A";
-                                insn.name += s ? "2" : "";
+                                insn.suffix += u ? "I" : "D";
+                                insn.suffix += p ? "B" : "A";
+                                insn.addr = l ? "LDM" : "STM";
+                                insn.addr += p ? "_PRE" : "_POST";
+                                insn.addr += w ? "_WBACK" : "";
+                                insn.addr += u ? "_ADD" : "_SUB";
+                                insn.addr += s ? "_PSR" : "";
 
-                                insn.variant = insn.name;
-                                if (w)
-                                {
-                                    insn.name += "W";
-                                    insn.variant += "_W";
-                                }
+                                insn.variant = l ? "LDM" : "STM";
+                                insn.variant += u ? "I" : "D";
+                                insn.variant += p ? "B" : "A";
+                                insn.variant += s ? "2" : "";
+                                insn.variant += w ? "_W" : "";
 
                                 insn.opcode = 0x800 | (p << 8) | (u << 7) | (s << 6) | (w << 5) | (l << 4) | imm;
                                 setInstruction(insn);
@@ -413,8 +461,8 @@ public:
 
     void genOpcodes_TransSwp12()
     {
-        setInstruction(Instruction(0x109, "SWP", "SWP"));
-        setInstruction(Instruction(0x149, "SWPB", "SWPB"));
+        setInstruction(Instruction(0x109, "SWP", "SWP", "SWP_RD_RM_RN"));
+        setInstruction(Instruction(0x149, "SWPB", "SWPB", "SWP_RD_RM_RN"));
     }
 
     void genOpcodes_CoDataTrans()
@@ -433,10 +481,14 @@ public:
                             {
                                 Instruction insn;
                                 insn.name = l ? "LDC" : "STC";
-                                insn.variant = insn.name;
-
-                                insn.name += w ? "W" : "";
                                 insn.name += ARMv5 ? "2" : "";
+                                insn.suffix = n ? "L" : "";
+                                insn.variant = l ? "LDC" : "STC";
+                                insn.addr = l ? "LDC" : "STC";
+                                insn.addr += p ? "_PRE" : "_POST";
+                                insn.addr += w ? "_WBACK" : "";
+                                insn.addr += u ? "_ADD" : "_SUB";
+                                
                                 if (!w && !p)
                                 {
                                     insn.variant += "_OPTION";
@@ -444,7 +496,6 @@ public:
                                 else
                                 {
                                     insn.variant += u ? "_P" : "_M";
-                                    //insn.variant += "_P";
                                     insn.variant += w ? (p ? "_PREIND" : "_POSTIND") : "_IMM_OFF";
                                 }
 
@@ -475,6 +526,7 @@ public:
 
                     insn.variant = insn.name;
                     insn.name += ARMv5 ? "2" : "";
+                    insn.addr = insn.name;
 
                     insn.opcode = 0xe00 | (cpopc << 4) | (cp << 1) | trans;
                     setInstruction(insn);
@@ -486,15 +538,20 @@ public:
     void genOpcodes_Undocumented()
     {
         // Special undocumented instructions emulated by DeSmuME
-        setInstruction(Instruction(0x189, "STREX", "STREX"));
-        setInstruction(Instruction(0x199, "LDREX", "LDREX"));
+        setInstruction(Instruction(0x189, "STREX", "STREX", "STREX"));
+        setInstruction(Instruction(0x199, "LDREX", "LDREX", "LDREX"));
     }
 
     void genOpcodes()
     {
-        mInsn.add("UND");
+        mInsn.add("INVALID");
+        mAddr.add("INVALID");
         mVariant.add("OP_UND");
-        mVariantTable.resize(4096, "OP_UND");
+        static const size_t tableSize = 4096;
+        mNameTable.resize(tableSize, "INVALID");
+        mSuffixTable.resize(tableSize);
+        mAddrTable.resize(tableSize, "INVALID");
+        mVariantTable.resize(tableSize, "OP_UND");
 
         genOpcodes_B_BL_BLX();
         genOpcodes_BX_BLX();
@@ -515,8 +572,10 @@ public:
 
         printf("Instructions:\n");
         mInsn.dump();
-        printf("\nVariants:\n");
-        mVariant.dump();
+        //printf("\nVariants:\n");
+        //mVariant.dump();
+        printf("Addressing modes:\n");
+        mAddr.dump();
     }
 
     void generate()
@@ -567,7 +626,11 @@ private:
     bool                        ARMv5;
     bool                        ARMv5TE;
     Dictionary                  mInsn;
+    Dictionary                  mAddr;
     Dictionary                  mVariant;
+    std::vector<std::string>    mNameTable;
+    std::vector<std::string>    mSuffixTable;
+    std::vector<std::string>    mAddrTable;
     std::vector<std::string>    mVariantTable;
 };
 
