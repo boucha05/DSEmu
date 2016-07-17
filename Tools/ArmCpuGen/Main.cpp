@@ -22,13 +22,15 @@ namespace ARM
         std::unordered_set<std::string>     names;
         std::vector<std::string>            list;
 
-        void add(const std::string& name)
+        bool add(const std::string& name)
         {
-            if (!names.count(name))
+            bool added = !names.count(name);
+            if (added)
             {
                 names.insert(name);
                 list.push_back(name);
             }
+            return added;
         }
 
         void dump()
@@ -40,18 +42,62 @@ namespace ARM
         }
     };
 
-    struct Shared
+    class Shared
     {
-        Dictionary                  insn;
-        Dictionary                  addr;
-        Dictionary                  variant;
-
+    public:
         Shared()
         {
-            insn.add("INVALID");
-            addr.add("INVALID");
-            variant.add("OP_UND");
+            mInsn.add("INVALID");
+            mAddr.add("INVALID");
+            mVariant.add("OP_UND");
+            mName.push_back("INVALID");
+            mSuffix.push_back("");
         }
+
+        void addInstruction(const std::string& name, const std::string& suffix, const std::string& addr, const std::string& variant)
+        {
+            bool added = mInsn.add(name + suffix);
+            mAddr.add(addr);
+            mVariant.add(variant);
+            if (added)
+            {
+                mName.push_back(name);
+                mSuffix.push_back(suffix);
+            }
+        }
+
+        auto& getInsnSet()
+        {
+            return mInsn;
+        }
+
+        auto& getAddrSet()
+        {
+            return mAddr;
+        }
+
+        auto& getVariantSet()
+        {
+            return mVariant;
+        }
+
+        auto& getNameTable()
+        {
+            return mName;
+        }
+
+        auto& getSuffixTable()
+        {
+            return mSuffix;
+        }
+
+    private:
+        Dictionary                  mInsn;
+        Dictionary                  mAddr;
+        Dictionary                  mVariant;
+        std::vector<std::string>    mName;
+        std::vector<std::string>    mSuffix;
+
     };
 
     class Generator
@@ -97,9 +143,9 @@ namespace ARM
             assert(!insn.addr.empty());
             std::string addr = insn.addr;
             std::string variant = "OP_" + insn.variant;
-            mShared.insn.add(insn.name + insn.suffix);
-            mShared.addr.add(addr);
-            mShared.variant.add(variant);
+
+            mShared.addInstruction(insn.name, insn.suffix, addr, variant);
+
             if (insn.opcode > static_cast<uint32_t>(mVariantTable.size()))
             {
                 printf("Invalid opcode 0x%03x, can't not exceeed 0x%03x\n", insn.opcode, static_cast<uint32_t>(mVariantTable.size() - 1));
@@ -110,8 +156,6 @@ namespace ARM
                 printf("Can't assign %s to entry 0x%03x, %s already defined\n", variant.c_str(), insn.opcode, mVariantTable[insn.opcode].c_str());
                 assert(false);
             }
-            mNameTable[insn.opcode] = insn.name;
-            mSuffixTable[insn.opcode] = insn.suffix;
             mAddrTable[insn.opcode] = insn.addr;
             mVariantTable[insn.opcode] = variant;
         }
@@ -585,8 +629,7 @@ namespace ARM
         void genOpcodes()
         {
             static const size_t tableSize = 4096;
-            mNameTable.resize(tableSize, "INVALID");
-            mSuffixTable.resize(tableSize);
+            mInsnTable.resize(tableSize, "INVALID");
             mAddrTable.resize(tableSize, "INVALID");
             mVariantTable.resize(tableSize, "OP_UND");
 
@@ -615,6 +658,16 @@ namespace ARM
 
         const std::vector<std::string>& getInsnTable() const
         {
+            return mInsnTable;
+        }
+
+        const std::vector<std::string>& getAddrTable() const
+        {
+            return mAddrTable;
+        }
+
+        const std::vector<std::string>& getVariantTable() const
+        {
             return mVariantTable;
         }
 
@@ -623,8 +676,7 @@ namespace ARM
         bool                        ARMv5;
         bool                        ARMv5TE;
         Shared&                     mShared;
-        std::vector<std::string>    mNameTable;
-        std::vector<std::string>    mSuffixTable;
+        std::vector<std::string>    mInsnTable;
         std::vector<std::string>    mAddrTable;
         std::vector<std::string>    mVariantTable;
     };
@@ -664,11 +716,11 @@ int main()
     generatorARM9.generate();
 
     printf("Instructions:\n");
-    shared.insn.dump();
-    //printf("\nVariants:\n");
-    //shared.variant.dump();
+    shared.getInsnSet().dump();
+    printf("Variants:\n");
+    shared.getVariantSet().dump();
     printf("Addressing modes:\n");
-    shared.addr.dump();
+    shared.getAddrSet().dump();
 
     static const std::vector<std::string> expectedInsnTable =
     {
@@ -677,7 +729,7 @@ int main()
 #undef TABDECL
     };
 
-    assertSame(expectedInsnTable, generatorARM9.getInsnTable());
+    assertSame(expectedInsnTable, generatorARM9.getVariantTable());
 
     return 0;
 }
