@@ -39,11 +39,18 @@ namespace
             mArm7Memory.import32(header.ARM7RAMAddress, mROM.getContent().data() + header.ARM7ROMOffset, divideUp(header.ARM7Size, 4));
             mArm9Memory.import32(header.ARM9RAMAddress, mROM.getContent().data() + header.ARM9ROMOffset, divideUp(header.ARM9Size, 4));
 
+            reset();
+
             return true;
         }
 
         void reset()
         {
+            const auto& header = mROM.getHeader();
+            mArm7Cpu.reset();
+            mArm7Cpu.setPC(header.ARM7EntryAddress);
+            mArm9Cpu.reset();
+            mArm9Cpu.setPC(header.ARM9EntryAddress);
         }
 
         void executeFrame()

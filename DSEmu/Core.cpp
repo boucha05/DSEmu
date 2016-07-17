@@ -11,4 +11,9 @@ namespace emu
             assert(false);
         }
     }
+
+    void notImplemented(const char* function)
+    {
+        printf("Feature not implemented in %s\n", function);
+    }
 }

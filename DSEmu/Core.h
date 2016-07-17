@@ -16,7 +16,22 @@
 #endif
 #define EMU_VERIFY(e)   if (e) ; else return false
 
-#define EMU_BIT(n)      (1 << (n))
+#define EMU_INVOKE_ONCE(e)                  \
+{                                           \
+    static bool __invoked_before = false;   \
+    if (!__invoked_before)                  \
+    {                                       \
+        __invoked_before = true;            \
+        e;                                  \
+    }                                       \
+}
+
+#define EMU_NOT_IMPLEMENTED()       EMU_INVOKE_ONCE(emu::notImplemented(__FUNCTION__))
+
+#define EMU_BITS_MASK(bits)         (((1U << bits##_SIZE) - 1U) << (bits##_SHIFT))
+#define EMU_BITS_READ(val, bits)    (((v) & EMU_BITS_MASK(bits)) >> bits##_SHIFT)
+#define EMU_BITS_WRITE(val, bits)   (((v) << bits##_SHIFT) & EMU_BITS_MASK(bits))
+#define EMU_BIT(shift)              (1U << (shift))
 
 #if EMU_CONFIG_LITTLE_ENDIAN
 #define EMU_SWAP_LITTLE_ENDIAN(expr)                (expr)
@@ -100,6 +115,7 @@ namespace emu
     }
 
     void assertValid(bool valid, const char* msg);
+    void notImplemented(const char* function);
 
     class IContext;
     class ISystem;
