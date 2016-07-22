@@ -1,8 +1,112 @@
+#include <algorithm>
 #include <cassert>
+#include <cctype>
+#include <chrono>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdint>
+#include <ctime>
 #include <unordered_set>
 #include <vector>
+
+namespace
+{
+    void toUpper(std::string& value)
+    {
+        std::transform(value.begin(), value.end(), value.begin(), ::toupper);
+    }
+
+    void toLower(std::string& value)
+    {
+        std::transform(value.begin(), value.end(), value.begin(), ::tolower);
+    }
+
+    class FileWriter
+    {
+    public:
+        FileWriter(const std::string& filename)
+            : mPath("..\\..\\DSEmu\\" + filename)
+            , mFile(fopen(mPath.c_str(), "w"))
+        {
+            auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            printf("// %s generated automatically at %s", filename.c_str(), std::ctime(&time));
+        }
+
+        ~FileWriter()
+        {
+            fclose(mFile);
+        }
+
+        FILE* file() const
+        {
+            return mFile;
+        }
+
+        void printf(const char* format, ...)
+        {
+            if (mFile)
+            {
+                va_list args;
+                va_start(args, format);
+                vfprintf(mFile, format, args);
+                va_end(args);
+            }
+        }
+
+    private:
+        std::string     mPath;
+        FILE*           mFile;
+    };
+
+    class CompactListWriter
+    {
+    public:
+        CompactListWriter(FileWriter& file, uint32_t spacing, uint32_t rowCapacity)
+            : mFile(file)
+            , mSpacing(spacing)
+            , mRowCapacity(rowCapacity)
+            , mRowCount(0)
+        {
+        }
+
+        ~CompactListWriter()
+        {
+            flush();
+        }
+
+        void append(const std::string& text)
+        {
+            if (!mLine.empty())
+            {
+                mLine.append(", ");
+                auto padding = mLine.size() % mSpacing;
+                if (padding)
+                    padding = mSpacing - padding;
+                mLine.append(std::string(padding, ' '));
+            }
+            mLine.append(text);
+            if (++mRowCount >= mRowCapacity)
+                flush();
+        }
+
+        void flush()
+        {
+            if (!mLine.empty())
+            {
+                mFile.printf("    %s,\n", mLine.c_str());
+                mLine.clear();
+                mRowCount = 0;
+            }
+        }
+
+    private:
+        FileWriter&     mFile;
+        uint32_t        mSpacing;
+        uint32_t        mRowCapacity;
+        uint32_t        mRowCount;
+        std::string     mLine;
+    };
+}
 
 namespace ARM
 {
@@ -50,17 +154,19 @@ namespace ARM
             mInsn.add("INVALID");
             mAddr.add("INVALID");
             mVariant.add("OP_UND");
-            mName.push_back("INVALID");
+            mName.push_back("???");
             mSuffix.push_back("");
         }
 
-        void addInstruction(const std::string& name, const std::string& suffix, const std::string& addr, const std::string& variant)
+        void addInstruction(std::string name, std::string suffix, const std::string& addr, const std::string& variant)
         {
             bool added = mInsn.add(name + suffix);
             mAddr.add(addr);
             mVariant.add(variant);
             if (added)
             {
+                toLower(name);
+                toLower(suffix);
                 mName.push_back(name);
                 mSuffix.push_back(suffix);
             }
@@ -89,6 +195,48 @@ namespace ARM
         auto& getSuffixTable()
         {
             return mSuffix;
+        }
+
+        void exportSymbols(const char* filename)
+        {
+            auto file = FileWriter(filename);
+
+            file.printf("\nenum class Insn : uint8_t\n{\n");
+            {
+                CompactListWriter listWriter(file, 12, 8);
+                for (const auto& value : mInsn.list)
+                    listWriter.append(value);
+            }
+            file.printf("};\n");
+
+            file.printf("\nenum class Addr : uint8_t\n{\n");
+            {
+                CompactListWriter listWriter(file, 28, 4);
+                for (const auto& value : mAddr.list)
+                    listWriter.append(value);
+            }
+            file.printf("};\n");
+        }
+
+        void exportTables(const char* filename)
+        {
+            auto file = FileWriter(filename);
+
+            file.printf("\nstatic const char* InsnName[] =\n{\n");
+            {
+                CompactListWriter listWriter(file, 12, 8);
+                for (const auto& value : mName)
+                    listWriter.append('"' + value + '"');
+            }
+            file.printf("};\n");
+
+            file.printf("\nstatic const char* InsnSuffix[] =\n{\n");
+            {
+                CompactListWriter listWriter(file, 12, 8);
+                for (const auto& value : mSuffix)
+                    listWriter.append('"' + value + '"');
+            }
+            file.printf("};\n");
         }
 
     private:
@@ -156,6 +304,7 @@ namespace ARM
                 printf("Can't assign %s to entry 0x%03x, %s already defined\n", variant.c_str(), insn.opcode, mVariantTable[insn.opcode].c_str());
                 assert(false);
             }
+            mInsnTable[insn.opcode] = insn.name + insn.suffix;
             mAddrTable[insn.opcode] = insn.addr;
             mVariantTable[insn.opcode] = variant;
         }
@@ -413,7 +562,7 @@ namespace ARM
                                         insn.suffix += (!p && w) ? "T" : "";
                                         insn.addr = l ? "LDR" : "STR";
                                         insn.addr += p ? "_PRE" : "_POST";
-                                        insn.addr += (p && w) ? "_WBACK" : "";
+                                        insn.addr += (p && w) ? "_WB" : "";
                                         insn.addr += u ? "_ADD" : "_SUB";
                                         insn.addr += i ? "_REG" : "_IMM";
                                         insn.addr += i ? shiftTypeName[type] : "";
@@ -472,7 +621,7 @@ namespace ARM
                                     insn.addr = opInsn[l][op];
                                     insn.addr += "_EX";
                                     insn.addr += p ? "_PRE" : "_POST";
-                                    insn.addr += (p && w) ? "_WBACK" : "";
+                                    insn.addr += (p && w) ? "_WB" : "";
                                     insn.addr += u ? "_ADD" : "_SUB";
                                     insn.addr += i ? "_IMM" : "_REG";
 
@@ -523,7 +672,7 @@ namespace ARM
                                     insn.suffix += p ? "B" : "A";
                                     insn.addr = l ? "LDM" : "STM";
                                     insn.addr += p ? "_PRE" : "_POST";
-                                    insn.addr += w ? "_WBACK" : "";
+                                    insn.addr += w ? "_WB" : "";
                                     insn.addr += u ? "_ADD" : "_SUB";
                                     insn.addr += s ? "_PSR" : "";
 
@@ -570,7 +719,7 @@ namespace ARM
                                     insn.variant = l ? "LDC" : "STC";
                                     insn.addr = l ? "LDC" : "STC";
                                     insn.addr += p ? "_PRE" : "_POST";
-                                    insn.addr += w ? "_WBACK" : "";
+                                    insn.addr += w ? "_WB" : "";
                                     insn.addr += u ? "_ADD" : "_SUB";
 
                                     if (!w && !p)
@@ -671,6 +820,27 @@ namespace ARM
             return mVariantTable;
         }
 
+        void exportTables(const char* filename)
+        {
+            auto file = FileWriter(filename);
+
+            file.printf("\nstatic const Insn InsnTable[] =\n{\n");
+            {
+                CompactListWriter listWriter(file, 16, 4);
+                for (const auto& value : mInsnTable)
+                    listWriter.append("Insn::" + value);
+            }
+            file.printf("};\n");
+
+            file.printf("\nstatic const Addr AddrTable[] =\n{\n");
+            {
+                CompactListWriter listWriter(file, 32, 2);
+                for (const auto& value : mAddrTable)
+                    listWriter.append("Addr::" + value);
+            }
+            file.printf("};\n");
+        }
+
     private:
         bool                        ARMv4;
         bool                        ARMv5;
@@ -730,6 +900,11 @@ int main()
     };
 
     assertSame(expectedInsnTable, generatorARM9.getVariantTable());
+
+    shared.exportSymbols("CpuArmSymbols.inl");
+    shared.exportTables("CpuArmTables.inl");
+    generatorARM7.exportTables("CpuArm7Tables.inl");
+    generatorARM9.exportTables("CpuArm9Tables.inl");
 
     return 0;
 }
