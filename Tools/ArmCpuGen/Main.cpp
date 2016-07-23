@@ -21,6 +21,16 @@ namespace
         std::transform(value.begin(), value.end(), value.begin(), ::tolower);
     }
 
+    void format(std::string& dest, const char* format, ...)
+    {
+        char buffer[1024];
+        va_list args;
+        va_start(args, format);
+        int size = vsprintf(buffer, format, args);
+        va_end(args);
+        dest = std::string(buffer, size);
+    }
+
     class FileWriter
     {
     public:
@@ -152,7 +162,8 @@ namespace ARM
         Shared()
         {
             mInsn.add("INVALID");
-            mAddr.add("INVALID");
+            mAddrEnum.add("Invalid");
+            mAddr.add("Invalid");
             mVariant.add("OP_UND");
             mName.push_back("???");
             mSuffix.push_back("");
@@ -161,6 +172,7 @@ namespace ARM
         void addInstruction(std::string name, std::string suffix, const std::string& addr, const std::string& variant)
         {
             bool added = mInsn.add(name + suffix);
+            mAddrEnum.add(addr.substr(0, addr.find_last_of('<')));
             mAddr.add(addr);
             mVariant.add(variant);
             if (added)
@@ -175,6 +187,11 @@ namespace ARM
         auto& getInsnSet()
         {
             return mInsn;
+        }
+
+        auto& getAddrEnumSet()
+        {
+            return mAddrEnum;
         }
 
         auto& getAddrSet()
@@ -211,8 +228,8 @@ namespace ARM
 
             file.printf("\nenum class Addr : uint8_t\n{\n");
             {
-                CompactListWriter listWriter(file, 28, 4);
-                for (const auto& value : mAddr.list)
+                CompactListWriter listWriter(file, 16, 4);
+                for (const auto& value : mAddrEnum.list)
                     listWriter.append(value);
             }
             file.printf("};\n");
@@ -241,6 +258,7 @@ namespace ARM
 
     private:
         Dictionary                  mInsn;
+        Dictionary                  mAddrEnum;
         Dictionary                  mAddr;
         Dictionary                  mVariant;
         std::vector<std::string>    mName;
@@ -305,7 +323,7 @@ namespace ARM
                 assert(false);
             }
             mInsnTable[insn.opcode] = insn.name + insn.suffix;
-            mAddrTable[insn.opcode] = insn.addr;
+            mAddrTable[insn.opcode] = addr;
             mVariantTable[insn.opcode] = variant;
         }
 
@@ -318,7 +336,7 @@ namespace ARM
                     Instruction insn;
                     insn.name = "B";
                     insn.name += l ? "L" : "";
-                    insn.addr = "BRANCH_OFFSET";
+                    insn.addr = "BranchOffset";
                     insn.variant = insn.name;
                     insn.opcode = 0xa00 | (l << 8) | imm;
                     setInstruction(insn);
@@ -328,8 +346,8 @@ namespace ARM
 
         void genOpcodes_BX_BLX()
         {
-            setInstruction(Instruction(0x121, "BX", "BX", "BRANCH_REG"));
-            setInstruction(Instruction(0x123, "BLX_REG", "BLX", "BRANCH_REG"));
+            setInstruction(Instruction(0x121, "BX", "BX", "BranchReg"));
+            setInstruction(Instruction(0x123, "BLX_REG", "BLX", "BranchReg"));
         }
 
         void genOpcodes_SWI()
@@ -349,7 +367,7 @@ namespace ARM
         {
             if (ARMv5)
             {
-                setInstruction(Instruction(0x127, "BKPT", "BKPT", "BKPT_IMM"));
+                setInstruction(Instruction(0x127, "BKPT", "BKPT", "BKPT"));
             }
         }
 
@@ -385,11 +403,10 @@ namespace ARM
                             insn.name = opcodeALU[op];
                             insn.variant = insn.name;
                             insn.suffix = s ? "S" : "";
-                            insn.addr = "ALU";
-                            insn.addr += test ? "" : "_RD";
-                            insn.addr += unary ? "" : "_RN";
-                            insn.addr += (!i && r) ? "_REG" : "_IMM";
-                            insn.addr += !i ? shiftTypeName[type] : "";
+                            if (!i)
+                                format(insn.addr, "ALUReg<%d,%d,%d,%d>", op, s, type, r);
+                            else
+                                format(insn.addr, "ALUImm<%d,%d>", op, s);
                             insn.variant += (s && !test) ? "_S" : "";
                             insn.variant += !i ? shiftTypeName[type] : "";
                             insn.variant += (!i && r) ? "_REG" : "_IMM";
@@ -431,7 +448,7 @@ namespace ARM
                         {
                             Instruction insn;
                             insn.name = opInsn[op];
-                            insn.addr = opAddr[op];
+                            insn.addr = "Multiply";
                             insn.variant = insn.name;
 
                             uint32_t operand = 0;
@@ -443,7 +460,6 @@ namespace ARM
                                 if (op == 9)
                                 {
                                     insn.name = x ? "SMULW" : "SMLAW";
-                                    insn.addr = x ? "MUL_RD_RM_RS" : "MUL_RD_RM_RS_RN";
                                     insn.variant = insn.name;
                                 }
                                 else
@@ -479,7 +495,7 @@ namespace ARM
         {
             if (ARMv5)
             {
-                setInstruction(Instruction(0x161, "CLZ", "CLZ", "CLZ_RD_RM"));
+                setInstruction(Instruction(0x161, "CLZ", "CLZ", "CLZ"));
             }
         }
 
@@ -495,7 +511,7 @@ namespace ARM
                 {
                     Instruction insn;
                     insn.name = opInsn[op];
-                    insn.addr = "QALU_RD_RM_RN";
+                    insn.addr = "QALU";
                     insn.variant = insn.name;
 
                     insn.opcode = 0x105 | (op << 5);
@@ -521,8 +537,15 @@ namespace ARM
 
                             Instruction insn;
                             insn.name = op ? "MSR" : "MRS";
-                            insn.addr = op ? "MSR" : "MRS";
-                            insn.addr += op ? i ? "_IMM" : "_REG" : "";
+                            if (!op)
+                                format(insn.addr, "MRS<%d>", psr);
+                            else
+                            {
+                                if (!i)
+                                    format(insn.addr, "MSRReg<%d>", psr);
+                                else
+                                    format(insn.addr, "MSRImm<%d>", psr);
+                            }
                             insn.variant = insn.name;
                             insn.variant += psr ? "_SPSR" : "_CPSR";
                             insn.variant += i ? "_IMM_VAL" : "";
@@ -560,12 +583,10 @@ namespace ARM
                                         insn.name = l ? "LDR" : "STR";
                                         insn.suffix += b ? "B" : "";
                                         insn.suffix += (!p && w) ? "T" : "";
-                                        insn.addr = l ? "LDR" : "STR";
-                                        insn.addr += p ? "_PRE" : "_POST";
-                                        insn.addr += (p && w) ? "_WB" : "";
-                                        insn.addr += u ? "_ADD" : "_SUB";
-                                        insn.addr += i ? "_REG" : "_IMM";
-                                        insn.addr += i ? shiftTypeName[type] : "";
+                                        if (!i)
+                                            format(insn.addr, "MemImm<%d,%d,%d>", p, u, (p && w) ? 1 : 0);
+                                        else
+                                            format(insn.addr, "MemReg<%d,%d,%d,%d>", p, u, (p && w) ? 1 : 0, type);
 
                                         insn.variant = insn.name;
                                         insn.variant += b ? "B" : "";
@@ -618,12 +639,7 @@ namespace ARM
                                     Instruction insn;
                                     insn.name = opInsn[l][op];
                                     insn.suffix += opSize[l][op];
-                                    insn.addr = opInsn[l][op];
-                                    insn.addr += "_EX";
-                                    insn.addr += p ? "_PRE" : "_POST";
-                                    insn.addr += (p && w) ? "_WB" : "";
-                                    insn.addr += u ? "_ADD" : "_SUB";
-                                    insn.addr += i ? "_IMM" : "_REG";
+                                    format(insn.addr, "MemEx%s<%d,%d,%d>", !i ? "Reg" : "Imm", p, u, (p && w) ? 1 : 0);
 
                                     insn.variant = opInsn[l][op];
                                     insn.variant += opSize[l][op];
@@ -670,11 +686,7 @@ namespace ARM
                                     insn.name = l ? "LDM" : "STM";
                                     insn.suffix += u ? "I" : "D";
                                     insn.suffix += p ? "B" : "A";
-                                    insn.addr = l ? "LDM" : "STM";
-                                    insn.addr += p ? "_PRE" : "_POST";
-                                    insn.addr += w ? "_WB" : "";
-                                    insn.addr += u ? "_ADD" : "_SUB";
-                                    insn.addr += s ? "_PSR" : "";
+                                    format(insn.addr, "MemBlock<%d,%d,%d,%d>", p, u, s, w);
 
                                     insn.variant = l ? "LDM" : "STM";
                                     insn.variant += u ? "I" : "D";
@@ -694,8 +706,8 @@ namespace ARM
 
         void genOpcodes_TransSwp12()
         {
-            setInstruction(Instruction(0x109, "SWP", "SWP", "SWP_RD_RM_RN"));
-            setInstruction(Instruction(0x149, "SWPB", "SWPB", "SWP_RD_RM_RN"));
+            setInstruction(Instruction(0x109, "SWP", "SWP", "SWP"));
+            setInstruction(Instruction(0x149, "SWPB", "SWPB", "SWP"));
         }
 
         void genOpcodes_CoDataTrans()
@@ -717,10 +729,7 @@ namespace ARM
                                     insn.name += ARMv5 ? "2" : "";
                                     insn.suffix = n ? "L" : "";
                                     insn.variant = l ? "LDC" : "STC";
-                                    insn.addr = l ? "LDC" : "STC";
-                                    insn.addr += p ? "_PRE" : "_POST";
-                                    insn.addr += w ? "_WB" : "";
-                                    insn.addr += u ? "_ADD" : "_SUB";
+                                    format(insn.addr, "CoDataTrans%s<%d,%d,%d,%d>", ARMv5 ? "2" : "", p, u, n, w);
 
                                     if (!w && !p)
                                     {
@@ -753,13 +762,18 @@ namespace ARM
                         Instruction insn;
                         insn.name;
                         if (trans)
+                        {
                             insn.name = (cpopc & 1) ? "MRC" : "MCR";
+                            format(insn.addr, "CoRegTrans%s<%d,%d>", ARMv5 ? "2" : "", cpopc >> 1, cp);
+                        }
                         else
+                        {
                             insn.name = "CDP";
+                            format(insn.addr, "CoDataOp%s<%d,%d>", ARMv5 ? "2" : "", cpopc, cp);
+                        }
 
                         insn.variant = insn.name;
                         insn.name += ARMv5 ? "2" : "";
-                        insn.addr = insn.name;
 
                         insn.opcode = 0xe00 | (cpopc << 4) | (cp << 1) | trans;
                         setInstruction(insn);
@@ -771,15 +785,15 @@ namespace ARM
         void genOpcodes_Undocumented()
         {
             // Special undocumented instructions emulated by DeSmuME
-            setInstruction(Instruction(0x189, "STREX", "STREX", "STREX"));
-            setInstruction(Instruction(0x199, "LDREX", "LDREX", "LDREX"));
+            setInstruction(Instruction(0x189, "STREX", "STREX", "STREx"));
+            setInstruction(Instruction(0x199, "LDREX", "LDREX", "LDREx"));
         }
 
         void genOpcodes()
         {
             static const size_t tableSize = 4096;
             mInsnTable.resize(tableSize, "INVALID");
-            mAddrTable.resize(tableSize, "INVALID");
+            mAddrTable.resize(tableSize, "Invalid");
             mVariantTable.resize(tableSize, "OP_UND");
 
             genOpcodes_B_BL_BLX();
@@ -824,21 +838,9 @@ namespace ARM
         {
             auto file = FileWriter(filename);
 
-            file.printf("\nstatic const Insn InsnTable[] =\n{\n");
-            {
-                CompactListWriter listWriter(file, 16, 4);
-                for (const auto& value : mInsnTable)
-                    listWriter.append("Insn::" + value);
-            }
-            file.printf("};\n");
-
-            file.printf("\nstatic const Addr AddrTable[] =\n{\n");
-            {
-                CompactListWriter listWriter(file, 32, 2);
-                for (const auto& value : mAddrTable)
-                    listWriter.append("Addr::" + value);
-            }
-            file.printf("};\n");
+            file.printf("\n");
+            for (size_t index = 0; index < mInsnTable.size(); ++index)
+                file.printf("INSTRUCTION(%-8s (%s))\n", (mInsnTable[index] + ",").c_str(), mAddrTable[index].c_str());
         }
 
     private:
