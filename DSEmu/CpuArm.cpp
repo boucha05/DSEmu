@@ -1,6 +1,11 @@
 #include "Clock.h"
 #include "CpuArm.h"
 
+namespace
+{
+#include "CpuArmTables.inl"
+}
+
 namespace emu
 {
     CpuArm::Config::Config()
@@ -62,6 +67,16 @@ namespace emu
         regExport(MODE_ABT);
         regExport(MODE_UND);
         regExport(MODE_SYS);
+    }
+
+    const char** CpuArm::getInsnNameTable()
+    {
+        return ::InsnName;
+    }
+
+    const char** CpuArm::getInsnSuffixTable()
+    {
+        return ::InsnSuffix;
     }
 
     void CpuArm::setPC(uint32_t addr)
@@ -177,26 +192,6 @@ namespace emu
         default:
             EMU_ASSERT(false);
         }
-    }
-
-    uint32_t CpuArm::disassemble(char* buffer, size_t size, uint32_t addr, bool thumb)
-    {
-        if (thumb)
-        {
-            EMU_INVOKE_ONCE(printf("Thumb not implemented!\n"));
-        }
-
-        char temp[64];
-        char* text = temp;
-        text += sprintf(text, "???");
-
-        if (size--)
-        {
-            strncpy(buffer, temp, size);
-            buffer[size] = 0;
-        }
-
-        return addr;
     }
 
     void CpuArm::trace()

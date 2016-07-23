@@ -154,6 +154,7 @@
     <ClCompile Include="Clock.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="CpuArm.cpp" />
+    <ClCompile Include="CpuArmDisassembler.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MemoryBus.cpp" />
     <ClCompile Include="NDS.cpp" />

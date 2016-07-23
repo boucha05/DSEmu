@@ -84,6 +84,11 @@ namespace emu
             return mRegisters;
         }
 
+    protected:
+        #include "CpuArmSymbols.inl"
+        static const char** getInsnNameTable();
+        static const char** getInsnSuffixTable();
+
     private:
         static const uint32_t   MODE_USR = 0x10;
         static const uint32_t   MODE_FIQ = 0x11;

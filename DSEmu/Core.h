@@ -53,8 +53,19 @@
 
 #define EMU_UNUSED(expr)        (void)expr
 
+#define EMU_GET_MACRO_ARG_TYPE(arg)     emu::RemoveTypeParenthesis<void arg>::Type
+
 namespace emu
 {
+    template<typename>
+    struct RemoveTypeParenthesis;
+
+    template<typename T>
+    struct RemoveTypeParenthesis<void(T)>
+    {
+        typedef T Type;
+    };
+
     template <typename T>
     void swapInline(T& val)
     {
