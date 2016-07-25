@@ -1,4 +1,4 @@
-// CpuArmSymbols.inl generated automatically at Sat Jul 23 01:47:11 2016
+// CpuArmSymbols.inl generated automatically at Sun Jul 24 19:30:11 2016
 
 enum class Insn : uint8_t
 {
@@ -21,10 +21,11 @@ enum class Insn : uint8_t
 enum class Addr : uint8_t
 {
     Invalid,        BranchOffset,   BranchReg,      SWI,
-    ALUReg,         ALUImm,         Multiply,       MRS,
-    MSRReg,         MSRImm,         MemImm,         MemReg,
-    MemExReg,       MemExImm,       MemBlock,       SWP,
-    CoDataTrans,    CoDataOp,       CoRegTrans,     STREx,
-    LDREx,          BKPT,           CLZ,            QALU,
-    CoDataTrans2,   CoDataOp2,      CoRegTrans2,
+    ALURegImm,      ALURegReg,      ALUImm,         MulRdRmRs,
+    MulRdRmRsRn,    MulRnRdRmRs,    MRS,            MSRReg,
+    MSRImm,         MemImm,         MemReg,         MemExReg,
+    MemExImm,       MemBlock,       SWP,            CoDataTrans,
+    CoDataOp,       CoRegTrans,     STREx,          LDREx,
+    BKPT,           CLZ,            QALU,           CoDataTrans2,
+    CoDataOp2,      CoRegTrans2,
 };

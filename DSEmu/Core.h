@@ -28,10 +28,19 @@
 
 #define EMU_NOT_IMPLEMENTED()       EMU_INVOKE_ONCE(emu::notImplemented(__FUNCTION__))
 
-#define EMU_BITS_MASK(bits)         (((1U << bits##_SIZE) - 1U) << (bits##_SHIFT))
-#define EMU_BITS_READ(val, bits)    (((v) & EMU_BITS_MASK(bits)) >> bits##_SHIFT)
-#define EMU_BITS_WRITE(val, bits)   (((v) << bits##_SHIFT) & EMU_BITS_MASK(bits))
-#define EMU_BIT(shift)              (1U << (shift))
+#define EMU_BITS_BLEND(val1, val2, mask)            (((val1) & ~(mask)) | ((val2) & (mask)))
+#define EMU_BITS_MASK(shift, size)                  (((1 << (size)) - 1) << (shift))
+#define EMU_BITS_GET(shift, size, val)              (((val) >> (shift)) & ((1 << (size)) - 1))
+#define EMU_BITS_SET(shift, size, val, field)       (EMU_BITS_BLEND((val), (field) << (shift), EMU_BITS_MASK(shift, size)))
+#define EMU_BITS_MASK_FIELD(name)                   (EMU_BITS_MASK(name##_SHIFT, name##_SIZE))
+#define EMU_BITS_GET_FIELD(name, val)               (EMU_BITS_GET(name##_SHIFT, name##_SIZE, val))
+#define EMU_BITS_SET_FIELD(name, val, field)        (EMU_BITS_SET(name##_SHIFT, name##_SIZE, val, field))
+#define EMU_BIT(shift)                              (1U << (shift))
+#define EMU_BIT_GET(shift, val)                     (EMU_BITS_GET(shift, 1, val))
+#define EMU_BIT_SET(shift, val, field)              (EMU_BITS_SET(shift, 1, val, field))
+#define EMU_BIT_FIELD(name)                         (EMU_BIT(name##_SHIFT, 1))
+#define EMU_BIT_GET_FIELD(name, val)                (EMU_BIT_GET(name##_SHIFT, 1, val))
+#define EMU_BIT_SET_FIELD(name, val, field)         (EMU_BIT_SET(name##_SHIFT, 1, val, field))
 
 #if EMU_CONFIG_LITTLE_ENDIAN
 #define EMU_SWAP_LITTLE_ENDIAN(expr)                (expr)

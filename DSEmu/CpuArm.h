@@ -77,6 +77,7 @@ namespace emu
         virtual void advance(int32_t tick) override;
         void reset();
         void setPC(uint32_t addr);
+        uint32_t read32(uint32_t addr);
         uint32_t disassemble(char* buffer, size_t size, uint32_t addr, bool thumb);
 
         const Registers& getRegisters() const
@@ -111,7 +112,6 @@ namespace emu
 
         void regExport(uint32_t mode);
         void regImport(uint32_t mode);
-        uint32_t read32(uint32_t addr);
         void prefetch32();
         void trace();
 

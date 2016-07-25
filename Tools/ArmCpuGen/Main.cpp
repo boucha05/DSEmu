@@ -404,7 +404,7 @@ namespace ARM
                             insn.variant = insn.name;
                             insn.suffix = s ? "S" : "";
                             if (!i)
-                                format(insn.addr, "ALUReg<%d,%d,%d,%d>", op, s, type, r);
+                                format(insn.addr, "ALUReg%s<%d,%d,%d,%d>", r ? "Reg" : "Imm", op, s, type, r);
                             else
                                 format(insn.addr, "ALUImm<%d,%d>", op, s);
                             insn.variant += (s && !test) ? "_S" : "";
@@ -431,9 +431,9 @@ namespace ARM
             };
             static const char* opAddr[16] =
             {
-                "MUL_RD_RM_RS", "MUL_RD_RM_RS_RN", nullptr, nullptr,
-                "MUL_RDLO_RDHI_RM_RS", "MUL_RDLO_RDHI_RM_RS", "MUL_RDLO_RDHI_RM_RS", "MUL_RDLO_RDHI_RM_RS",
-                "MUL_RD_RM_RS_RN", "", "MUL_RD_RM_RS_RN", "MUL_RD_RM_RS",
+                "MulRdRmRs", "MulRdRmRsRn", nullptr, nullptr,
+                "MulRnRdRmRs", "MulRnRdRmRs", "MulRnRdRmRs", "MulRnRdRmRs",
+                "MulRdRmRsRn", "", "MulRnRdRmRs", "MulRdRmRs",
                 nullptr, nullptr, nullptr, nullptr
             };
             for (uint32_t op = 0; op < 16; ++op)
@@ -448,7 +448,7 @@ namespace ARM
                         {
                             Instruction insn;
                             insn.name = opInsn[op];
-                            insn.addr = "Multiply";
+                            insn.addr = opAddr[op];
                             insn.variant = insn.name;
 
                             uint32_t operand = 0;
@@ -460,6 +460,7 @@ namespace ARM
                                 if (op == 9)
                                 {
                                     insn.name = x ? "SMULW" : "SMLAW";
+                                    insn.addr = x ? "MulRdRmRs" : "MulRdRmRsRn";
                                     insn.variant = insn.name;
                                 }
                                 else
