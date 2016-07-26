@@ -40,6 +40,7 @@ namespace emu
         for (uint32_t index = 0; index < 50; ++index)
         {
             trace();
+            mExecutedTick += execute();
             prefetch32();
         }
         printf("\n");

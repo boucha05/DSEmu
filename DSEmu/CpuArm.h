@@ -79,6 +79,7 @@ namespace emu
         void setPC(uint32_t addr);
         uint32_t read32(uint32_t addr);
         uint32_t disassemble(char* buffer, size_t size, uint32_t addr, bool thumb);
+        uint32_t execute();
 
         const Registers& getRegisters() const
         {
@@ -90,7 +91,6 @@ namespace emu
         static const char** getInsnNameTable();
         static const char** getInsnSuffixTable();
 
-    private:
         static const uint32_t   MODE_USR = 0x10;
         static const uint32_t   MODE_FIQ = 0x11;
         static const uint32_t   MODE_IRQ = 0x12;

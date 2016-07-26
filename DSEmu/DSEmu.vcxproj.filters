@@ -10,6 +10,7 @@
     <ClCompile Include="Clock.cpp" />
     <ClCompile Include="CpuArm.cpp" />
     <ClCompile Include="CpuArmDisassembler.cpp" />
+    <ClCompile Include="CpuArmInterpreter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NDS.h" />
