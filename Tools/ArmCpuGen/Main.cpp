@@ -161,7 +161,7 @@ namespace ARM
     public:
         Shared()
         {
-            mInsn.add("INVALID");
+            mInsn.add("invalid");
             mAddrEnum.add("Invalid");
             mAddr.add("Invalid");
             mVariant.add("OP_UND");
@@ -169,9 +169,9 @@ namespace ARM
             mSuffix.push_back("");
         }
 
-        void addInstruction(std::string name, std::string suffix, const std::string& addr, const std::string& variant)
+        void addInstruction(const std::string& function, std::string name, std::string suffix, const std::string& addr, const std::string& variant)
         {
-            bool added = mInsn.add(name + suffix);
+            bool added = mInsn.add(function);
             mAddrEnum.add(addr.substr(0, addr.find_last_of('<')));
             mAddr.add(addr);
             mVariant.add(variant);
@@ -220,7 +220,7 @@ namespace ARM
 
             file.printf("\nenum class Insn : uint8_t\n{\n");
             {
-                CompactListWriter listWriter(file, 12, 8);
+                CompactListWriter listWriter(file, 12, 1);
                 for (const auto& value : mInsn.list)
                     listWriter.append(value);
             }
@@ -228,7 +228,7 @@ namespace ARM
 
             file.printf("\nenum class Addr : uint8_t\n{\n");
             {
-                CompactListWriter listWriter(file, 16, 4);
+                CompactListWriter listWriter(file, 16, 1);
                 for (const auto& value : mAddrEnum.list)
                     listWriter.append(value);
             }
@@ -241,7 +241,7 @@ namespace ARM
 
             file.printf("\nstatic const char* InsnName[] =\n{\n");
             {
-                CompactListWriter listWriter(file, 12, 8);
+                CompactListWriter listWriter(file, 12, 1);
                 for (const auto& value : mName)
                     listWriter.append('"' + value + '"');
             }
@@ -249,7 +249,7 @@ namespace ARM
 
             file.printf("\nstatic const char* InsnSuffix[] =\n{\n");
             {
-                CompactListWriter listWriter(file, 12, 8);
+                CompactListWriter listWriter(file, 12, 1);
                 for (const auto& value : mSuffix)
                     listWriter.append('"' + value + '"');
             }
@@ -310,7 +310,9 @@ namespace ARM
             std::string addr = insn.addr;
             std::string variant = "OP_" + insn.variant;
 
-            mShared.addInstruction(insn.name, insn.suffix, addr, variant);
+            std::string function = insn.name + insn.suffix;
+            toLower(function);
+            mShared.addInstruction(function, insn.name, insn.suffix, addr, variant);
 
             if (insn.opcode > static_cast<uint32_t>(mVariantTable.size()))
             {
@@ -322,7 +324,7 @@ namespace ARM
                 printf("Can't assign %s to entry 0x%03x, %s already defined\n", variant.c_str(), insn.opcode, mVariantTable[insn.opcode].c_str());
                 assert(false);
             }
-            mInsnTable[insn.opcode] = insn.name + insn.suffix;
+            mInsnTable[insn.opcode] = function;
             mAddrTable[insn.opcode] = addr;
             mVariantTable[insn.opcode] = variant;
         }
@@ -793,7 +795,7 @@ namespace ARM
         void genOpcodes()
         {
             static const size_t tableSize = 4096;
-            mInsnTable.resize(tableSize, "INVALID");
+            mInsnTable.resize(tableSize, "invalid");
             mAddrTable.resize(tableSize, "Invalid");
             mVariantTable.resize(tableSize, "OP_UND");
 
@@ -882,11 +884,11 @@ int main()
 {
     ARM::Shared shared;
 
-    ARM::Generator generatorARM7(shared, ARM::Family::ARM7TDMI);
-    generatorARM7.generate();
-
     ARM::Generator generatorARM9(shared, ARM::Family::ARM946ES);
     generatorARM9.generate();
+
+    ARM::Generator generatorARM7(shared, ARM::Family::ARM7TDMI);
+    generatorARM7.generate();
 
     printf("Instructions:\n");
     shared.getInsnSet().dump();
