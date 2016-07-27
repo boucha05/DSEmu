@@ -99,14 +99,14 @@ namespace emu
         static const uint32_t   MODE_UND = 0x1b;
         static const uint32_t   MODE_SYS = 0x1f;
 
-        static const uint32_t   CPSR_N = EMU_BIT(31);
-        static const uint32_t   CPSR_Z = EMU_BIT(30);
-        static const uint32_t   CPSR_C = EMU_BIT(29);
-        static const uint32_t   CPSR_V = EMU_BIT(28);
-        static const uint32_t   CPSR_Q = EMU_BIT(27);
-        static const uint32_t   CPSR_I = EMU_BIT(7);
-        static const uint32_t   CPSR_F = EMU_BIT(6);
-        static const uint32_t   CPSR_T = EMU_BIT(5);
+        static const uint32_t   CPSR_N = 31;
+        static const uint32_t   CPSR_Z = 30;
+        static const uint32_t   CPSR_C = 29;
+        static const uint32_t   CPSR_V = 28;
+        static const uint32_t   CPSR_Q = 27;
+        static const uint32_t   CPSR_I = 7;
+        static const uint32_t   CPSR_F = 6;
+        static const uint32_t   CPSR_T = 5;
         static const uint32_t   CPSR_MODE_SHIFT = 0;
         static const uint32_t   CPSR_MODE_SIZE = 5;
 

@@ -198,7 +198,7 @@ namespace emu
 
     void CpuArm::trace()
     {
-        bool thumb = (mRegisters.cpsr & CPSR_T) != 0;
+        bool thumb = EMU_BIT_GET(CPSR_T, mRegisters.cpsr) != 0;
         char disassembly[32];
         uint32_t data = read32(mPC);
         disassemble(disassembly, sizeof(disassembly), mPC, thumb);
