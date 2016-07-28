@@ -69,6 +69,7 @@ namespace emu
         regExport(MODE_ABT);
         regExport(MODE_UND);
         regExport(MODE_SYS);
+        flagsImport();
     }
 
     const char** CpuArm::getInsnNameTable()
@@ -100,8 +101,29 @@ namespace emu
         mRegisters.r[15] = pc + 8;
     }
 
+    void CpuArm::flagsExport()
+    {
+        uint32_t value_v = mRegisters.flag_v ? 1 : 0;
+        uint32_t value_c = mRegisters.flag_c ? 1 : 0;
+        uint32_t value_z = mRegisters.flag_z ? 0 : 1;
+        uint32_t value_n = static_cast<int32_t>(mRegisters.flag_n) < 0 ? 1 : 0;
+        EMU_BIT_SET(CPSR_V, mRegisters.flag_v, value_v);
+        EMU_BIT_SET(CPSR_C, mRegisters.flag_c, value_c);
+        EMU_BIT_SET(CPSR_Z, mRegisters.flag_z, value_z);
+        EMU_BIT_SET(CPSR_N, mRegisters.flag_n, value_n);
+    }
+
+    void CpuArm::flagsImport()
+    {
+        mRegisters.flag_v = EMU_BIT_GET(CPSR_V, mRegisters.cpsr) ? 1 : 0;
+        mRegisters.flag_c = EMU_BIT_GET(CPSR_C, mRegisters.cpsr) ? 1 : 0;
+        mRegisters.flag_z = EMU_BIT_GET(CPSR_Z, mRegisters.cpsr) ? 0 : 1;
+        mRegisters.flag_n = EMU_BIT_GET(CPSR_N, mRegisters.cpsr) ? -1 : 0;
+    }
+
     void CpuArm::regExport(uint32_t mode)
     {
+        flagsExport();
         switch (mode)
         {
         case MODE_USR:
@@ -194,6 +216,7 @@ namespace emu
         default:
             EMU_ASSERT(false);
         }
+        flagsImport();
     }
 
     void CpuArm::trace()

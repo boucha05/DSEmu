@@ -68,6 +68,10 @@ namespace emu
                 uint32_t    r14;
                 uint32_t    spsr;
             }               und;
+            uint32_t        flag_v;
+            uint32_t        flag_c;
+            uint32_t        flag_z;
+            uint32_t        flag_n;
         };
 
         CpuArm();
@@ -110,6 +114,8 @@ namespace emu
         static const uint32_t   CPSR_MODE_SHIFT = 0;
         static const uint32_t   CPSR_MODE_SIZE = 5;
 
+        void flagsExport();
+        void flagsImport();
         void regExport(uint32_t mode);
         void regImport(uint32_t mode);
         void prefetch32();

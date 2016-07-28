@@ -18,24 +18,57 @@ namespace
         }
 
         template <uint32_t type>
-        uint32_t evalShift(uint32_t value, uint32_t shift)
+        uint32_t evalShift(uint32_t& c, uint32_t value, uint32_t shift)
         {
             switch (type)
             {
-            case 0:
-                return value << (shift & 31);
-
-            case 1:
-                return static_cast<uint32_t>(static_cast<uint64_t>(value) >> static_cast<uint64_t>(shift));
-
-            case 2:
-                return static_cast<uint32_t>(static_cast<int64_t>(value) >> static_cast<int64_t>(static_cast<int32_t>(shift)));
-
-            case 3:
+            case 0: // LSL
                 if (shift)
-                    return evalRORImm32(value, shift);
+                {
+                    c = EMU_BIT_GET(32 - shift, value);
+                    return value << (shift & 31);
+                }
                 else
-                    return (value >> 1) | (EMU_BIT_GET(CPSR_C, mRegisters.cpsr) << 31);
+                {
+                    c = mRegisters.flag_c;
+                    return value;
+                }
+
+            case 1: // LSR
+                if (shift)
+                {
+                    c = EMU_BIT_GET(shift - 1, value);
+                    return static_cast<uint32_t>(value) >> static_cast<uint32_t>(shift);
+                }
+                else
+                {
+                    c = EMU_BIT_GET(31, value);
+                    return 0;
+                }
+
+            case 2: // ASR
+                if (shift)
+                {
+                    c = EMU_BIT_GET(shift - 1, value);
+                    return static_cast<int32_t>(value) >> static_cast<int32_t>(shift);
+                }
+                else
+                {
+                    c = EMU_BIT_GET(31, value);
+                    return -static_cast<int32_t>(c);  // 0 -> 0x00000000, 1 -> 0xffffffff
+                }
+
+            case 3: // ROR
+                if (shift)
+                {
+                    c = EMU_BIT_GET(shift - 1, value);
+                    return evalRORImm32(value, shift);
+                }
+                else
+                {
+                    c = EMU_BIT_GET(0, value);
+                    return (value >> 1) | (mRegisters.flag_c << 31);
+                }
             }
             return 0;
         }
@@ -66,15 +99,20 @@ namespace
         struct ALUBase
         {
             CpuArmInterpreter& cpu;
-            uint32_t rn;
+            uint32_t rn_value;
             uint32_t rd;
             uint32_t op2;
             uint32_t clock;
+            uint32_t c;
 
             ALUBase(CpuArmInterpreter& _cpu, uint32_t data)
                 : cpu(_cpu)
             {
-                rn = EMU_BITS_GET(16, 4, data);
+                c = cpu.mRegisters.flag_c;
+                uint32_t rn = EMU_BITS_GET(16, 4, data);
+                rn_value = cpu.mRegisters.r[rn];
+                if (rn == 15)
+                    rn_value += 4;
                 rd = EMU_BITS_GET(12, 4, data);
             }
 
@@ -87,6 +125,13 @@ namespace
                     clock += 2;
                 }
             }
+
+            void flags(uint32_t flag_c, uint32_t flags_zn)
+            {
+                cpu.mRegisters.flag_c = flag_c;
+                cpu.mRegisters.flag_z = flags_zn;
+                cpu.mRegisters.flag_n = flags_zn;
+            }
         };
 
         template <uint32_t Opcode, uint32_t S, uint32_t ShiftType, uint32_t R>
@@ -97,7 +142,10 @@ namespace
             {
                 uint32_t imm = EMU_BITS_GET(7, 5, data);
                 uint32_t rm = EMU_BITS_GET(0, 4, data);
-                op2 = cpu.evalShift<ShiftType>(cpu.mRegisters.r[rm], imm);
+                uint32_t rm_value = cpu.mRegisters.r[rm];
+                if (rm == 15)
+                    rm_value += 4;
+                op2 = cpu.evalShift<ShiftType>(c, rm_value, imm);
                 clock = 2;
             }
         };
@@ -110,7 +158,10 @@ namespace
             {
                 uint32_t rs = EMU_BITS_GET(8, 4, data);
                 uint32_t rm = EMU_BITS_GET(0, 4, data);
-                op2 = cpu.evalShift<ShiftType>(cpu.mRegisters.r[rm], cpu.mRegisters.r[rs]);
+                uint32_t rm_value = cpu.mRegisters.r[rm];
+                if (rm == 15)
+                    rm_value += 4;
+                op2 = cpu.evalShift<ShiftType>(c, rm_value, cpu.mRegisters.r[rs]);
                 clock = 3;
             }
         };
@@ -444,9 +495,10 @@ namespace
 
         template <typename Addr> uint32_t insn_movs(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            addr.save(addr.op2);
+            addr.flags(addr.c, addr.op2);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_bic(uint32_t insn)
