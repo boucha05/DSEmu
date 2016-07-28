@@ -37,7 +37,7 @@ namespace emu
 
     int32_t CpuArm::execute(int32_t tick)
     {
-        for (uint32_t index = 0; index < 50; ++index)
+        for (uint32_t index = 0; index < 25; ++index)
         {
             trace();
             mExecutedTick += execute();

@@ -99,6 +99,7 @@ namespace
         struct ALUBase
         {
             CpuArmInterpreter& cpu;
+            uint32_t rn;
             uint32_t rn_value;
             uint32_t rd;
             uint32_t op2;
@@ -109,26 +110,26 @@ namespace
                 : cpu(_cpu)
             {
                 c = cpu.mRegisters.flag_c;
-                uint32_t rn = EMU_BITS_GET(16, 4, data);
+                rn = EMU_BITS_GET(16, 4, data);
                 rn_value = cpu.mRegisters.r[rn];
                 if (rn == 15)
                     rn_value += 4;
                 rd = EMU_BITS_GET(12, 4, data);
             }
 
-            void save(uint32_t result)
+            void save(uint32_t reg, uint32_t result)
             {
-                cpu.mRegisters.r[rd] = result;
-                if (rd == 15)
+                cpu.mRegisters.r[reg] = result;
+                if (reg == 15)
                 {
                     cpu.mPCNext = result;
                     clock += 2;
                 }
             }
 
-            void flags(uint32_t flag_c, uint32_t flags_zn)
+            void flags(uint32_t flags_zn)
             {
-                cpu.mRegisters.flag_c = flag_c;
+                cpu.mRegisters.flag_c = c;
                 cpu.mRegisters.flag_z = flags_zn;
                 cpu.mRegisters.flag_n = flags_zn;
             }
@@ -334,30 +335,36 @@ namespace
 
         template <typename Addr> uint32_t insn_and(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            uint32_t result = addr.rn_value & addr.op2;
+            addr.save(addr.rd, result);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_ands(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            uint32_t result = addr.rn_value & addr.op2;
+            addr.save(addr.rd, result);
+            addr.flags(result);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_eor(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            uint32_t result = addr.rn_value ^ addr.op2;
+            addr.save(addr.rd, result);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_eors(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            uint32_t result = addr.rn_value ^ addr.op2;
+            addr.save(addr.rd, result);
+            addr.flags(result);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_sub(uint32_t insn)
@@ -474,59 +481,70 @@ namespace
 
         template <typename Addr> uint32_t insn_orr(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            uint32_t result = addr.rn_value | addr.op2;
+            addr.save(addr.rd, result);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_orrs(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            uint32_t result = addr.rn_value | addr.op2;
+            addr.save(addr.rd, result);
+            addr.flags(result);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_mov(uint32_t insn)
         {
             Addr addr(*this, insn);
-            addr.save(addr.op2);
+            uint32_t result = addr.op2;
+            addr.save(addr.rn, result);
             return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_movs(uint32_t insn)
         {
             Addr addr(*this, insn);
-            addr.save(addr.op2);
-            addr.flags(addr.c, addr.op2);
+            uint32_t result = addr.op2;
+            addr.save(addr.rn, result);
+            addr.flags(result);
             return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_bic(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            uint32_t result = addr.rn_value & ~addr.op2;
+            addr.save(addr.rd, result);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_bics(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            uint32_t result = addr.rn_value & ~addr.op2;
+            addr.save(addr.rd, result);
+            addr.flags(result);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_mvn(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            uint32_t result = ~addr.op2;
+            addr.save(addr.rn, result);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_mvns(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            uint32_t result = ~addr.op2;
+            addr.save(addr.rn, result);
+            addr.flags(result);
+            return addr.clock;
         }
 
         template <typename Addr> uint32_t insn_mul(uint32_t insn)
