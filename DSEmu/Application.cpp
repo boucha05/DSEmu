@@ -1,6 +1,5 @@
 #include "Application.h"
-#include "NDS.h"
-#include "Rom.h"
+#include <NDS/NDS.h>
 
 Application::Config::Config()
 {

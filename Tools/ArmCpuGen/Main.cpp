@@ -35,7 +35,7 @@ namespace
     {
     public:
         FileWriter(const std::string& filename)
-            : mPath("..\\DSEmu\\" + filename)
+            : mPath("..\\Core\\" + filename)
             , mFile(fopen(mPath.c_str(), "w"))
         {
             auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());

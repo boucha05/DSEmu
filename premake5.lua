@@ -48,6 +48,7 @@ function configure()
     filter {}
     
     flags { "ExtraWarnings", "FatalWarnings" }
+    includedirs { "." }
 end
 
 function baseProject(kind_name, name)
@@ -85,10 +86,28 @@ workspace "DSEmu"
     filter {}
         defines { "_CRT_SECURE_NO_WARNINGS" }
 
+staticLibrary "Core"
+    files
+    {
+        "Core/**.h", "Core/**.cpp",
+    }
+
+staticLibrary "NDS"
+    files
+    {
+        "NDS/**.h", "NDS/**.cpp",
+    }
+
 application "DSEmu"
     files
     {
         "DSEmu/**.h", "DSEmu/**.cpp",
+    }
+    
+    links
+    {
+        "Core",
+        "NDS",
     }
 
 application "ArmCpuGen"

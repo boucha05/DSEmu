@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core.h"
+#include <Core/Core.h>
 
 #define NDS_SWAP(val)               (EMU_SWAP_LITTLE_ENDIAN(val))
 #define NDS_SWAP_INLINE(val)        (EMU_SWAP_LITTLE_ENDIAN_INLINE(val))
