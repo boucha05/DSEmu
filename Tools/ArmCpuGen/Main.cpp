@@ -35,7 +35,7 @@ namespace
     {
     public:
         FileWriter(const std::string& filename)
-            : mPath("..\\..\\DSEmu\\" + filename)
+            : mPath("..\\DSEmu\\" + filename)
             , mFile(fopen(mPath.c_str(), "w"))
         {
             auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -386,7 +386,6 @@ namespace ARM
                             uint32_t r = imm & 1;
                             uint32_t type = (imm >> 1) & 3;
                             bool test = (op >= 0x8) && (op <= 0xb);
-                            bool unary = (op == 0xd) || (op == 0xf);
 
                             if (!i && r && (imm & 8))
                                 continue;
