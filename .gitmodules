@@ -1,0 +1,3 @@
+[submodule "Contrib/CpuTrace"]
+	path = Contrib/CpuTrace
+	url = https://github.com/boucha05/CpuTrace.git
