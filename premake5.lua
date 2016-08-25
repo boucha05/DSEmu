@@ -86,6 +86,12 @@ workspace "DSEmu"
     filter {}
         defines { "_CRT_SECURE_NO_WARNINGS" }
 
+staticLibrary "CpuTrace"
+    files
+    {
+        "Contrib/CpuTrace/src/**.h", "Contrib/CpuTrace/src/**.cpp"
+    }
+
 staticLibrary "Core"
     files
     {
@@ -114,4 +120,16 @@ application "ArmCpuGen"
     files
     {
         "Tools/ArmCpuGen/**.h", "Tools/ArmCpuGen/**.cpp",
+    }
+
+application "ArmCpuReplay"
+    files
+    {
+        "Tools/ArmCpuReplay/**.h", "Tools/ArmCpuReplay/**.cpp",
+    }
+
+    links
+    {
+        "Core",
+        "CpuTrace",
     }
