@@ -20,18 +20,6 @@ namespace emu
         }
 
         template <typename TRet(*TFunction)(TArgs...)>
-        Delegate()
-        {
-            bind<TRet(*TFunction)(TArgs...)>();
-        }
-
-        template <typename TClass, typename TRet(TClass::*TFunction)(TArgs...)>
-        Delegate(TClass* instance)
-        {
-            bind<TRet(*TFunction)(TArgs...)>(instance);
-        }
-
-        template <typename TRet(*TFunction)(TArgs...)>
         void bind()
         {
             mInstance = nullptr;

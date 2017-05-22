@@ -13,12 +13,12 @@ namespace
 {
     void toUpper(std::string& value)
     {
-        std::transform(value.begin(), value.end(), value.begin(), ::toupper);
+        std::transform(value.begin(), value.end(), value.begin(), [](char value) { return static_cast<char>(toupper(value)); });
     }
 
     void toLower(std::string& value)
     {
-        std::transform(value.begin(), value.end(), value.begin(), ::tolower);
+        std::transform(value.begin(), value.end(), value.begin(), [](char value) { return static_cast<char>(tolower(value)); });
     }
 
     void format(std::string& dest, const char* format, ...)
