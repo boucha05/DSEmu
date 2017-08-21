@@ -215,14 +215,73 @@ namespace
         {
         };
 
-        template <uint32_t P, uint32_t U, uint32_t W>
-        struct MemImm
+        template <uint32_t P, uint32_t U>
+        struct MemBase
         {
+            CpuArmInterpreter& cpu;
+            uint32_t imm;
+            uint32_t rd_value;
+            uint32_t rn;
+            uint32_t mem;
+
+            MemBase(CpuArmInterpreter& _cpu, uint32_t data)
+                : cpu(_cpu)
+            {
+                imm = 0;
+                rd_value = cpu.mRegisters.r[EMU_BITS_GET(12, 4, data)];
+                rn = EMU_BITS_GET(16, 4, data);
+                mem = cpu.mRegisters.r[rn];
+                if (P)
+                    save_mem();
+            }
+
+            void save_mem()
+            {
+                if (!U)
+                    mem -= imm;
+                else
+                    mem += imm;
+                cpu.mRegisters.r[rn] = mem;
+            }
+
+            void pre_mem()
+            {
+                if (!P)
+                    save_mem();
+            }
+
+            void post_mem()
+            {
+                if (!P)
+                    save_mem();
+            }
         };
 
-        template <uint32_t P, uint32_t U, uint32_t W, uint32_t Type>
-        struct MemReg
+        template <uint32_t P, uint32_t U, uint32_t W>
+        struct MemImm : MemBase<P, U>
         {
+            MemImm(CpuArmInterpreter& _cpu, uint32_t data)
+                : MemBase(_cpu, data)
+            {
+                imm = EMU_BITS_GET(0, 12, data);
+                pre_mem();
+            }
+        };
+
+        template <uint32_t P, uint32_t U, uint32_t W, uint32_t ShiftType>
+        struct MemReg : MemBase<P, U>
+        {
+            MemReg(CpuArmInterpreter& _cpu, uint32_t data)
+                : MemBase(_cpu, data)
+            {
+                uint32_t shift = EMU_BITS_GET(7, 5, data);
+                uint32_t rm = EMU_BITS_GET(0, 4, data);
+                uint32_t rm_value = cpu.mRegisters.r[rm];
+                if (rm == 15)
+                    rm_value += 4;
+                imm = cpu.evalShift<ShiftType>(cpu.mRegisters.flag_c, rm_value, shift);
+                pre_mem();
+            }
         };
 
         template <uint32_t P, uint32_t U, uint32_t W>
@@ -500,7 +559,7 @@ namespace
         {
             Addr addr(*this, insn);
             uint32_t result = addr.op2;
-            addr.save(addr.rn, result);
+            addr.save(addr.rd, result);
             return addr.clock;
         }
 
@@ -508,7 +567,7 @@ namespace
         {
             Addr addr(*this, insn);
             uint32_t result = addr.op2;
-            addr.save(addr.rn, result);
+            addr.save(addr.rd, result);
             addr.flags(result);
             return addr.clock;
         }
@@ -534,7 +593,7 @@ namespace
         {
             Addr addr(*this, insn);
             uint32_t result = ~addr.op2;
-            addr.save(addr.rn, result);
+            addr.save(addr.rd, result);
             return addr.clock;
         }
 
@@ -542,7 +601,7 @@ namespace
         {
             Addr addr(*this, insn);
             uint32_t result = ~addr.op2;
-            addr.save(addr.rn, result);
+            addr.save(addr.rd, result);
             addr.flags(result);
             return addr.clock;
         }
@@ -794,9 +853,10 @@ namespace
 
         template <typename Addr> uint32_t insn_str(uint32_t insn)
         {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
+            Addr addr(*this, insn);
+            mMemory->write32(addr.mem, addr.rd_value);
+            addr.post_mem();
+            return 2;
         }
 
         template <typename Addr> uint32_t insn_ldr(uint32_t insn)
