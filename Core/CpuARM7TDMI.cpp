@@ -7,21 +7,21 @@ namespace
 #define INSTRUCTION(index, insn, addr)  static_cast<uint8_t>(EMU_GET_MACRO_ARG_TYPE(addr)::getAddr()),
     const uint8_t CpuArmDisassembler::addrTable[] =
     {
-#include "CpuArm7Tables.inl"
+#include "CpuTablesARM7TDMI.inl"
     };
 #undef INSTRUCTION
 
 #define INSTRUCTION(index, insn, addr)  static_cast<uint8_t>(Insn::##insn),
     const uint8_t CpuArmDisassembler::insnTable[] =
     {
-#include "CpuArm7Tables.inl"
+#include "CpuTablesARM7TDMI.inl"
     };
 #undef INSTRUCTION
 
 #define INSTRUCTION(index, insn, addr)  &CpuArmInterpreter::insn_##insn<EMU_GET_MACRO_ARG_TYPE(addr)>,
     const CpuArmInterpreter::InterpretedFunction CpuArmInterpreter::insnTable[] =
     {
-#include "CpuArm7Tables.inl"
+#include "CpuTablesARM7TDMI.inl"
     };
 #undef INSTRUCTION
 }

@@ -1,4 +1,4 @@
-// CpuArmSymbols.inl generated automatically at Sun Aug 20 20:25:38 2017
+// CpuArmSymbols.inl generated automatically at Sun Aug 20 21:48:51 2017
 
 enum class Insn : uint8_t
 {

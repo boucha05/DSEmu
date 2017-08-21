@@ -907,8 +907,8 @@ int main()
 
     shared.exportSymbols("CpuArmSymbols.inl");
     shared.exportTables("CpuArmTables.inl");
-    generatorARM7.exportTables("CpuArm7Tables.inl");
-    generatorARM9.exportTables("CpuArm9Tables.inl");
+    generatorARM7.exportTables("CpuTablesARM7TDMI.inl");
+    generatorARM9.exportTables("CpuTablesARM946ES.inl");
 
     return 0;
 }
