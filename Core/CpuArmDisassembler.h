@@ -1,10 +1,15 @@
-#include "Clock.h"
+#pragma once
+
 #include "CpuArm.h"
 
 namespace
 {
+#include "CpuArmTables.inl"
+
     struct CpuArmDisassembler : public emu::CpuArm
     {
+        #include "CpuArmSymbols.inl"
+
         struct Invalid { constexpr static Addr getAddr() { return Addr::Invalid; } };
         struct BranchOffset { constexpr static Addr getAddr() { return Addr::BranchOffset; } };
         struct BranchReg { constexpr static Addr getAddr() { return Addr::BranchReg; } };
@@ -73,11 +78,6 @@ namespace
         struct STREx { constexpr static Addr getAddr() { return Addr::STREx; } };
         struct LDREx { constexpr static Addr getAddr() { return Addr::LDREx; } };
 
-        static const uint8_t insnTable7[];
-        static const uint8_t insnTable9[];
-        static const uint8_t addrTable7[];
-        static const uint8_t addrTable9[];
-
         uint32_t evalRORImm32(uint32_t imm, uint32_t shift)
         {
             if (!shift)
@@ -89,7 +89,7 @@ namespace
             return result;
         }
 
-        void disassembleArm(char* instruction, char* operands, uint32_t pc, const uint8_t* insnTable, const uint8_t* addrTable)
+        void disassembleArm(char* instruction, char* operands, uint32_t pc)
         {
             static const char* conditionText[] =
             {
@@ -126,7 +126,7 @@ namespace
             uint32_t entry = (EMU_BITS_GET(20, 8, data) << 4) | EMU_BITS_GET(4, 4, data);
             uint32_t condition = EMU_BITS_GET(28, 4, data);
             Insn insn = static_cast<Insn>(insnTable[entry]);
-            instruction += sprintf(instruction, "%s%s%s", getInsnNameTable()[static_cast<uint32_t>(insn)], conditionText[condition], getInsnSuffixTable()[static_cast<uint32_t>(insn)]);
+            instruction += sprintf(instruction, "%s%s%s", ::InsnName[static_cast<uint32_t>(insn)], conditionText[condition], ::InsnSuffix[static_cast<uint32_t>(insn)]);
 
             operands[0] = 0;
             Addr addr = static_cast<Addr>(addrTable[entry]);
@@ -442,71 +442,33 @@ namespace
             }
         }
 
-        void disassembleArm7(char* instruction, char* operands, uint32_t addr)
+        static const uint8_t insnTable[];
+        static const uint8_t addrTable[];
+
+        uint32_t disassembleImpl(char* buffer, size_t size, uint32_t addr, bool thumb)
         {
-            disassembleArm(instruction, operands, addr, insnTable7, addrTable7);
+            if (thumb)
+            {
+                EMU_INVOKE_ONCE(printf("Thumb not implemented!\n"));
+            }
+
+            char instruction[32];
+            char operands[32];
+            char temp[64];
+            char* text = temp;
+            disassembleArm(instruction, operands, addr);
+            if (operands[0])
+                text += sprintf(text, "%-7s %s", instruction, operands);
+            else
+                text += sprintf(text, "%s", instruction);
+
+            if (size--)
+            {
+                strncpy(buffer, temp, size);
+                buffer[size] = 0;
+            }
+
+            return addr;
         }
-
-        void disassembleArm9(char* instruction, char* operands, uint32_t addr)
-        {
-            disassembleArm(instruction, operands, addr, insnTable9, addrTable9);
-        }
     };
-
-#define INSTRUCTION(index, insn, addr)  static_cast<uint8_t>(EMU_GET_MACRO_ARG_TYPE(addr)::getAddr()),
-    const uint8_t CpuArmDisassembler::addrTable7[] =
-    {
-#include "CpuArm7Tables.inl"
-    };
-
-    const uint8_t CpuArmDisassembler::addrTable9[] =
-    {
-#include "CpuArm9Tables.inl"
-    };
-#undef INSTRUCTION
-
-
-#define INSTRUCTION(index, insn, addr)  static_cast<uint8_t>(Insn::##insn),
-    const uint8_t CpuArmDisassembler::insnTable7[] =
-    {
-#include "CpuArm7Tables.inl"
-    };
-
-    const uint8_t CpuArmDisassembler::insnTable9[] =
-    {
-#include "CpuArm9Tables.inl"
-    };
-#undef INSTRUCTION
-}
-
-namespace emu
-{
-    uint32_t CpuArm::disassemble(char* buffer, size_t size, uint32_t addr, bool thumb)
-    {
-        if (thumb)
-        {
-            EMU_INVOKE_ONCE(printf("Thumb not implemented!\n"));
-        }
-
-        char instruction[32];
-        char operands[32];
-        char temp[64];
-        char* text = temp;
-        if (mConfig.family == Family::ARMv5)
-            static_cast<CpuArmDisassembler*>(this)->disassembleArm9(instruction, operands, addr);
-        else
-            static_cast<CpuArmDisassembler*>(this)->disassembleArm7(instruction, operands, addr);
-        if (operands[0])
-            text += sprintf(text, "%-7s %s", instruction, operands);
-        else
-            text += sprintf(text, "%s", instruction);
-
-        if (size--)
-        {
-            strncpy(buffer, temp, size);
-            buffer[size] = 0;
-        }
-
-        return addr;
-    }
 }

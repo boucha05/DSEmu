@@ -9,18 +9,8 @@ namespace emu
     class CpuArm : public Clock::IClocked
     {
     public:
-        enum class Family
-        {
-            Unknown,
-            ARMv4,
-            ARMv5,
-        };
-
         struct Config
         {
-            Family  family;
-
-            Config();
         };
 
         struct Registers
@@ -82,8 +72,8 @@ namespace emu
         void reset();
         void setPC(uint32_t addr);
         uint32_t read32(uint32_t addr);
-        uint32_t disassemble(char* buffer, size_t size, uint32_t addr, bool thumb);
-        uint32_t execute();
+        virtual uint32_t disassemble(char* buffer, size_t size, uint32_t addr, bool thumb) = 0;
+        virtual uint32_t execute() = 0;
 
         const Registers& getRegisters() const
         {
@@ -91,10 +81,6 @@ namespace emu
         }
 
     protected:
-        #include "CpuArmSymbols.inl"
-        static const char** getInsnNameTable();
-        static const char** getInsnSuffixTable();
-
         static const uint32_t   MODE_USR = 0x10;
         static const uint32_t   MODE_FIQ = 0x11;
         static const uint32_t   MODE_IRQ = 0x12;

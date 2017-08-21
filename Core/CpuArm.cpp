@@ -1,18 +1,8 @@
 #include "Clock.h"
 #include "CpuArm.h"
 
-namespace
-{
-#include "CpuArmTables.inl"
-}
-
 namespace emu
 {
-    CpuArm::Config::Config()
-        : family(Family::Unknown)
-    {
-    }
-
     CpuArm::CpuArm()
     {
     }
@@ -24,10 +14,7 @@ namespace emu
     bool CpuArm::create(const Config& config, MemoryBus& memory, Clock& clock, uint32_t clockDivider)
     {
         mConfig = config;
-        EMU_VERIFY(config.family != Family::Unknown);
-
         mMemory = &memory;
-
         mClock = &clock;
         mClockDivider = clockDivider;
         mExecutedTick = 0;
@@ -70,16 +57,6 @@ namespace emu
         regExport(MODE_UND);
         regExport(MODE_SYS);
         flagsImport();
-    }
-
-    const char** CpuArm::getInsnNameTable()
-    {
-        return ::InsnName;
-    }
-
-    const char** CpuArm::getInsnSuffixTable()
-    {
-        return ::InsnSuffix;
     }
 
     void CpuArm::setPC(uint32_t addr)
@@ -225,6 +202,6 @@ namespace emu
         char disassembly[32];
         uint32_t data = read32(mPC);
         disassemble(disassembly, sizeof(disassembly), mPC, thumb);
-        printf("%d %08X %08X %-32s\n", mConfig.family, data, mPC, disassembly);
+        printf("%08X %08X %-32s\n", data, mPC, disassembly);
     }
 }

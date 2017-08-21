@@ -1,4 +1,5 @@
-#include "Clock.h"
+#pragma once
+
 #include "CpuArm.h"
 
 namespace
@@ -1134,49 +1135,15 @@ namespace
 
         // Interpreter /////////////////////////////////////////////////////////
 
-        typedef uint32_t (CpuArmInterpreter::* InterpretedFunction)(uint32_t insn);
+        typedef uint32_t(CpuArmInterpreter::* InterpretedFunction)(uint32_t insn);
 
-        static const InterpretedFunction insnTable7[];
-        static const InterpretedFunction insnTable9[];
+        static const InterpretedFunction insnTable[];
 
-        uint32_t interpretArm(const InterpretedFunction* insnTable)
+        uint32_t interpretImpl()
         {
             uint32_t insn = read32(mPC);
             uint32_t entry = (EMU_BITS_GET(20, 8, insn) << 4) | EMU_BITS_GET(4, 4, insn);
             return (this->*insnTable[entry])(insn);
         }
-
-        uint32_t interpretArm7()
-        {
-            return interpretArm(insnTable7);
-        }
-
-        uint32_t interpretArm9()
-        {
-            return interpretArm(insnTable9);
-        }
     };
-
-#define INSTRUCTION(index, insn, addr)  &CpuArmInterpreter::insn_##insn<EMU_GET_MACRO_ARG_TYPE(addr)>,
-    const CpuArmInterpreter::InterpretedFunction CpuArmInterpreter::insnTable7[] =
-    {
-#include "CpuArm7Tables.inl"
-    };
-
-    const CpuArmInterpreter::InterpretedFunction CpuArmInterpreter::insnTable9[] =
-    {
-#include "CpuArm9Tables.inl"
-    };
-#undef INSTRUCTION
-}
-
-namespace emu
-{
-    uint32_t CpuArm::execute()
-    {
-        if (mConfig.family == Family::ARMv5)
-            return static_cast<CpuArmInterpreter*>(this)->interpretArm7();
-        else
-            return static_cast<CpuArmInterpreter*>(this)->interpretArm9();
-    }
 }

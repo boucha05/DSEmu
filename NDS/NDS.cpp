@@ -1,5 +1,6 @@
 #include <Core/Clock.h>
-#include <Core/CpuArm.h>
+#include <Core/CpuARM7TDMI.h>
+#include <Core/CpuARM946ES.h>
 #include <Core/MemoryBus.h>
 #include "Rom.h"
 #include <memory>
@@ -27,13 +28,8 @@ namespace
             EMU_VERIFY(mArm9Memory.create(28, 22));
             EMU_VERIFY(mArm9Memory.addRange(0x02000000, MAIN_RAM_SIZE, mAccessorMainRAM));
 
-            CpuArm::Config configCpuArm7;
-            configCpuArm7.family = CpuArm::Family::ARMv4;
-            EMU_VERIFY(mArm7Cpu.create(configCpuArm7, mArm7Memory, mClock, TICKS_PER_FRAME / ARM7_TICKS_PER_FRAME));
-
-            CpuArm::Config configCpuArm9;
-            configCpuArm9.family = CpuArm::Family::ARMv5;
-            EMU_VERIFY(mArm9Cpu.create(configCpuArm9, mArm9Memory, mClock, TICKS_PER_FRAME / ARM7_TICKS_PER_FRAME));
+            EMU_VERIFY(mArm7Cpu.create(CpuArm::Config(), mArm7Memory, mClock, TICKS_PER_FRAME / ARM7_TICKS_PER_FRAME));
+            EMU_VERIFY(mArm9Cpu.create(CpuArm::Config(), mArm9Memory, mClock, TICKS_PER_FRAME / ARM7_TICKS_PER_FRAME));
 
             // Load startup code into RAM
             mArm7Memory.import32(header.ARM7RAMAddress, mROM.getContent().data() + header.ARM7ROMOffset, divideUp(header.ARM7Size, 4));
@@ -66,8 +62,8 @@ namespace
         MemoryBus                       mArm7Memory;
         MemoryBus                       mArm9Memory;
         MemoryBus::ReadWriteAccessor    mAccessorMainRAM;
-        CpuArm                          mArm7Cpu;
-        CpuArm                          mArm9Cpu;
+        ARM7TDMI                        mArm7Cpu;
+        ARM946ES                        mArm9Cpu;
     };
 
     class System : public ISystem
