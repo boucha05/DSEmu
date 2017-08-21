@@ -453,7 +453,7 @@ namespace
         }
     };
 
-#define INSTRUCTION(insn, addr)     static_cast<uint8_t>(EMU_GET_MACRO_ARG_TYPE(addr)::getAddr()),
+#define INSTRUCTION(index, insn, addr)  static_cast<uint8_t>(EMU_GET_MACRO_ARG_TYPE(addr)::getAddr()),
     const uint8_t CpuArmDisassembler::addrTable7[] =
     {
 #include "CpuArm7Tables.inl"
@@ -466,7 +466,7 @@ namespace
 #undef INSTRUCTION
 
 
-#define INSTRUCTION(insn, addr)     static_cast<uint8_t>(Insn::##insn),
+#define INSTRUCTION(index, insn, addr)  static_cast<uint8_t>(Insn::##insn),
     const uint8_t CpuArmDisassembler::insnTable7[] =
     {
 #include "CpuArm7Tables.inl"

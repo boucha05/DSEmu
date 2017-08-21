@@ -842,7 +842,7 @@ namespace ARM
 
             file.printf("\n");
             for (size_t index = 0; index < mInsnTable.size(); ++index)
-                file.printf("INSTRUCTION(%-8s (%s))\n", (mInsnTable[index] + ",").c_str(), mAddrTable[index].c_str());
+                file.printf("INSTRUCTION(0x%03x, %-8s (%s))\n", static_cast<uint32_t>(index), (mInsnTable[index] + ",").c_str(), mAddrTable[index].c_str());
         }
 
     private:

@@ -1157,7 +1157,7 @@ namespace
         }
     };
 
-#define INSTRUCTION(insn, addr)     &CpuArmInterpreter::insn_##insn<EMU_GET_MACRO_ARG_TYPE(addr)>,
+#define INSTRUCTION(index, insn, addr)  &CpuArmInterpreter::insn_##insn<EMU_GET_MACRO_ARG_TYPE(addr)>,
     const CpuArmInterpreter::InterpretedFunction CpuArmInterpreter::insnTable7[] =
     {
 #include "CpuArm7Tables.inl"

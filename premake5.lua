@@ -95,7 +95,7 @@ staticLibrary "CpuTrace"
 staticLibrary "Core"
     files
     {
-        "Core/**.h", "Core/**.cpp",
+        "Core/**.h", "Core/**.cpp", "Core/**.inl"
     }
 
 staticLibrary "NDS"
