@@ -38,8 +38,7 @@ namespace
             : mPath("..\\Core\\" + filename)
             , mFile(fopen(mPath.c_str(), "w"))
         {
-            auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-            printf("// %s generated automatically at %s", filename.c_str(), std::ctime(&time));
+            printf("// %s generated automatically", filename.c_str());
         }
 
         ~FileWriter()
@@ -310,6 +309,9 @@ namespace ARM
             std::string addr = insn.addr;
             std::string variant = "OP_" + insn.variant;
 
+            std::string prefix = insn.name;
+            toLower(prefix);
+
             std::string function = insn.name + insn.suffix;
             toLower(function);
             mShared.addInstruction(function, insn.name, insn.suffix, addr, variant);
@@ -324,6 +326,7 @@ namespace ARM
                 printf("Can't assign %s to entry 0x%03x, %s already defined\n", variant.c_str(), insn.opcode, mVariantTable[insn.opcode].c_str());
                 assert(false);
             }
+            mPrefixTable[insn.opcode] = prefix;
             mInsnTable[insn.opcode] = function;
             mAddrTable[insn.opcode] = addr;
             mVariantTable[insn.opcode] = variant;
@@ -794,6 +797,7 @@ namespace ARM
         void genOpcodes()
         {
             static const size_t tableSize = 4096;
+            mPrefixTable.resize(tableSize, "invalid");
             mInsnTable.resize(tableSize, "invalid");
             mAddrTable.resize(tableSize, "Invalid");
             mVariantTable.resize(tableSize, "OP_UND");
@@ -821,6 +825,11 @@ namespace ARM
             genOpcodes();
         }
 
+        const std::vector<std::string>& getPrefixTable() const
+        {
+            return mPrefixTable;
+        }
+
         const std::vector<std::string>& getInsnTable() const
         {
             return mInsnTable;
@@ -842,7 +851,10 @@ namespace ARM
 
             file.printf("\n");
             for (size_t index = 0; index < mInsnTable.size(); ++index)
-                file.printf("INSTRUCTION(0x%03x, %-8s (%s))\n", static_cast<uint32_t>(index), (mInsnTable[index] + ",").c_str(), mAddrTable[index].c_str());
+            {
+                uint32_t knownBits = ((index & 0xff0) << 16) | ((index & 0x00f) << 4);
+                file.printf("INSTRUCTION(0x%08x, %-8s %-8s (%s))\n", knownBits, (mPrefixTable[index] + ",").c_str(), (mInsnTable[index] + ",").c_str(), mAddrTable[index].c_str());
+            }
         }
 
     private:
@@ -850,6 +862,7 @@ namespace ARM
         bool                        ARMv5;
         bool                        ARMv5TE;
         Shared&                     mShared;
+        std::vector<std::string>    mPrefixTable;
         std::vector<std::string>    mInsnTable;
         std::vector<std::string>    mAddrTable;
         std::vector<std::string>    mVariantTable;

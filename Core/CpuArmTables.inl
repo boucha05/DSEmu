@@ -1,5 +1,4 @@
-// CpuArmTables.inl generated automatically at Sun Aug 20 21:48:51 2017
-
+// CpuArmTables.inl generated automatically
 static const char* InsnName[] =
 {
     "???",
