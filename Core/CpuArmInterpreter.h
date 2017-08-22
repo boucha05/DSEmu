@@ -2,8 +2,21 @@
 
 #include "CpuArm.h"
 
+#pragma warning(push)
+#pragma warning(disable:4127)
+
 namespace
 {
+    template <uint8_t bitEnd, uint8_t bitStart, typename T> constexpr T BITS(T value)
+    {
+        return static_cast<T>((value >> bitStart) & ((1 << (bitEnd - bitStart + 1)) - 1));
+    }
+
+    template <uint8_t bit, typename T> constexpr T BIT(T value)
+    {
+        return static_cast<T>((value >> bit) & 0x01);
+    }
+
     struct CpuArmInterpreter : public emu::CpuArm
     {
         // Helpers /////////////////////////////////////////////////////////////
@@ -344,806 +357,404 @@ namespace
 
         // Instructions ////////////////////////////////////////////////////////
 
-        template <typename Addr> uint32_t insn_invalid(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_invalid()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_b(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_b()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_bl(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_bl()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_bx(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_bx()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_blx(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_blx()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_swi(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_swi()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_bkpt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_bkpt()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_and(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_and()
         {
-            Addr addr(*this, insn);
-            uint32_t result = addr.rn_value & addr.op2;
-            addr.save(addr.rd, result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_ands(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = addr.rn_value & addr.op2;
-            addr.save(addr.rd, result);
-            addr.flags(result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_eor(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = addr.rn_value ^ addr.op2;
-            addr.save(addr.rd, result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_eors(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = addr.rn_value ^ addr.op2;
-            addr.save(addr.rd, result);
-            addr.flags(result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_sub(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_subs(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_rsb(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_rsbs(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_add(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_adds(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_adc(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_adcs(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_sbc(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_sbcs(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_rsc(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_rscs(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_tsts(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_teqs(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_cmps(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_cmns(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_orr(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = addr.rn_value | addr.op2;
-            addr.save(addr.rd, result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_orrs(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = addr.rn_value | addr.op2;
-            addr.save(addr.rd, result);
-            addr.flags(result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_mov(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = addr.op2;
-            addr.save(addr.rd, result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_movs(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = addr.op2;
-            addr.save(addr.rd, result);
-            addr.flags(result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_bic(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = addr.rn_value & ~addr.op2;
-            addr.save(addr.rd, result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_bics(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = addr.rn_value & ~addr.op2;
-            addr.save(addr.rd, result);
-            addr.flags(result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_mvn(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = ~addr.op2;
-            addr.save(addr.rd, result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_mvns(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            uint32_t result = ~addr.op2;
-            addr.save(addr.rd, result);
-            addr.flags(result);
-            return addr.clock;
-        }
-
-        template <typename Addr> uint32_t insn_mul(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_muls(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_mla(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_mlas(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_umull(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_umulls(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_umlal(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_umlals(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_smull(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_smulls(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_smlal(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
-            EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_smlals(uint32_t insn)
-        {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
+            //Addr addr(*this, insn);
+            //uint32_t result = addr.rn_value & addr.op2;
+            //addr.save(addr.rd, result);
+            //if (S) addr.flags(result); // or do this inside addr.flags()
+            //return addr.clock;
         }
 
-        template <typename Addr> uint32_t insn_smlabb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_eor()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
+            //Addr addr(*this, insn);
+            //uint32_t result = addr.rn_value ^ addr.op2;
+            //addr.save(addr.rd, result);
+            //if (S) addr.flags(result); // or do this inside addr.flags()
+            //return addr.clock;
         }
 
-        template <typename Addr> uint32_t insn_smlatb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_sub()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_smlabt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_rsb()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_smlatt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_add()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_smlawb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_adc()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_smulwb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_sbc()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_smlawt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_rsc()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_smulwt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_tst()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_smlalbb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_teq()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_smlaltb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_cmp()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_smlalbt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_cmn()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_smlaltt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_orr()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
+            //Addr addr(*this, insn);
+            //uint32_t result = addr.rn_value | addr.op2;
+            //addr.save(addr.rd, result);
+            //if (S) addr.flags(result); // or do this inside addr.flags()
+            //return addr.clock;
         }
 
-        template <typename Addr> uint32_t insn_smulbb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_mov()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
+            //Addr addr(*this, insn);
+            //uint32_t result = addr.op2;
+            //addr.save(addr.rd, result);
+            //if (S) addr.flags(result); // or do this inside addr.flags()
+            //return addr.clock;
         }
 
-        template <typename Addr> uint32_t insn_smultb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_bic()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
+            //Addr addr(*this, insn);
+            //uint32_t result = addr.rn_value & ~addr.op2;
+            //addr.save(addr.rd, result);
+            //if (S) addr.flags(result); // or do this inside addr.flags()
+            //return addr.clock;
         }
 
-        template <typename Addr> uint32_t insn_smulbt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_mvn()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
+            //Addr addr(*this, insn);
+            //uint32_t result = ~addr.op2;
+            //addr.save(addr.rd, result);
+            //if (S) addr.flags(result); // or do this inside addr.flags()
+            //return addr.clock;
         }
 
-        template <typename Addr> uint32_t insn_smultt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_mul()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_clz(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_mla()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_qadd(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_umull()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_qsub(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_umlal()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_qdadd(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smull()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_qdsub(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlal()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_mrs(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlabb()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_msr(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlatb()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
-        }
-
-        template <typename Addr> uint32_t insn_str(uint32_t insn)
-        {
-            Addr addr(*this, insn);
-            mMemory->write32(addr.mem, addr.rd_value);
-            addr.post_mem();
-            return 2;
         }
 
-        template <typename Addr> uint32_t insn_ldr(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlabt()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_strt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlatt()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldrt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlawb()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_strb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smulwb()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldrb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlawt()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_strbt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smulwt()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldrbt(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlalbb()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_strh(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlaltb()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldrd(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlalbt()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_strd(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smlaltt()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldrh(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smulbb()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldrsb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smultb()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldrsh(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smulbt()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_stmda(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_smultt()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldmda(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_clz()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_stmia(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_qadd()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldmia(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_qsub()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_stmdb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_qdadd()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldmdb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_qdsub()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_stmib(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_mrs()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldmib(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_msr()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_swp(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_str()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
+            //Addr addr(*this, insn);
+            //mMemory->write32(addr.mem, addr.rd_value);
+            //addr.post_mem();
+            //return 2;
         }
 
-        template <typename Addr> uint32_t insn_swpb(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_ldr()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_stc2(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_stm()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldc2(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_ldm()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_stc2l(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_swp()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldc2l(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_swpb()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_cdp2(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_stc2()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_mcr2(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_ldc2()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_mrc2(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_cdp2()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_strex(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_mcr2()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldrex(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_mrc2()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_stc(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_strex()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldc(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_ldrex()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
-
-        template <typename Addr> uint32_t insn_stcl(uint32_t insn)
+        
+        template <uint32_t TKnownBits> void insn_stc()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_ldcl(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_ldc()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_cdp(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_cdp()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_mcr(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_mcr()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
-        template <typename Addr> uint32_t insn_mrc(uint32_t insn)
+        template <uint32_t TKnownBits> void insn_mrc()
         {
-            EMU_UNUSED(insn);
             EMU_NOT_IMPLEMENTED();
-            return 1;
         }
 
         // Interpreter /////////////////////////////////////////////////////////
 
-        typedef uint32_t(CpuArmInterpreter::* InterpretedFunction)(uint32_t insn);
+        typedef void(CpuArmInterpreter::* InterpretedFunction)();
 
         static const InterpretedFunction insnTable[];
 
         uint32_t interpretImpl()
         {
-            uint32_t insn = read32(mPC);
-            uint32_t entry = (EMU_BITS_GET(20, 8, insn) << 4) | EMU_BITS_GET(4, 4, insn);
-            return (this->*insnTable[entry])(insn);
+            mOpcode = read32(mPC);
+            uint32_t entry = (EMU_BITS_GET(20, 8, mOpcode) << 4) | EMU_BITS_GET(4, 4, mOpcode);
+            (this->*insnTable[entry])();
+            return 1;
         }
     };
 }
+
+#pragma warning(pop)

@@ -115,5 +115,6 @@ namespace emu
         Registers       mRegisters;
         uint32_t        mPC;
         uint32_t        mPCNext;
+        uint32_t        mOpcode = 0;
     };
 }

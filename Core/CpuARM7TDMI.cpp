@@ -18,7 +18,7 @@ namespace
     };
 #undef INSTRUCTION
 
-#define INSTRUCTION(known, prefix, insn, addr)  &CpuArmInterpreter::insn_##insn<EMU_GET_MACRO_ARG_TYPE(addr)>,
+#define INSTRUCTION(known, prefix, insn, addr)  &CpuArmInterpreter::insn_##prefix<known>,
     const CpuArmInterpreter::InterpretedFunction CpuArmInterpreter::insnTable[] =
     {
 #include "CpuTablesARM7TDMI.inl"
