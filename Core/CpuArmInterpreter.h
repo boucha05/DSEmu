@@ -17,10 +17,31 @@ namespace
         return static_cast<T>((value >> bit) & 0x01);
     }
 
+    template <typename T> constexpr T BITS(uint32_t bitEnd, uint32_t bitStart, T value)
+    {
+        return static_cast<T>((value >> bitStart) & ((1 << (bitEnd - bitStart + 1)) - 1));
+    }
+
+    template <typename T> constexpr T BIT(uint32_t bit, T value)
+    {
+        return static_cast<T>((value >> bit) & 0x01);
+    }
+
     struct CpuArmInterpreter : public emu::CpuArm
     {
         // Helpers /////////////////////////////////////////////////////////////
-        uint32_t evalRORImm32(uint32_t imm, uint32_t shift)
+
+        uint32_t getRegister(uint32_t regIndex)
+        {
+            return mRegisters.r[regIndex];
+        }
+
+        void setRegister(uint32_t regIndex, uint32_t value)
+        {
+            mRegisters.r[regIndex] = value;
+        }
+
+        static uint32_t evalRORImm32(uint32_t imm, uint32_t shift)
         {
             if (!shift)
                 return imm;
@@ -32,328 +53,83 @@ namespace
         }
 
         template <uint32_t type>
-        uint32_t evalShift(uint32_t& c, uint32_t value, uint32_t shift)
+        uint32_t evalImmShift(uint32_t value, uint32_t shift)
         {
             switch (type)
             {
             case 0: // LSL
                 if (shift)
                 {
-                    c = EMU_BIT_GET(32 - shift, value);
+                    mRegisters.flag_c = BIT(32 - shift, value);
                     return value << (shift & 31);
                 }
                 else
                 {
-                    c = mRegisters.flag_c;
                     return value;
                 }
 
             case 1: // LSR
                 if (shift)
                 {
-                    c = EMU_BIT_GET(shift - 1, value);
+                    mRegisters.flag_c = BIT(shift - 1, value);
                     return static_cast<uint32_t>(value) >> static_cast<uint32_t>(shift);
                 }
                 else
                 {
-                    c = EMU_BIT_GET(31, value);
+                    mRegisters.flag_c = BIT(31, value);
                     return 0;
                 }
 
             case 2: // ASR
                 if (shift)
                 {
-                    c = EMU_BIT_GET(shift - 1, value);
+                    mRegisters.flag_c = BIT(shift - 1, value);
                     return static_cast<int32_t>(value) >> static_cast<int32_t>(shift);
                 }
                 else
                 {
-                    c = EMU_BIT_GET(31, value);
-                    return -static_cast<int32_t>(c);  // 0 -> 0x00000000, 1 -> 0xffffffff
+                    mRegisters.flag_c = BIT(31, value);
+                    return -static_cast<int32_t>(mRegisters.flag_c);  // 0 -> 0x00000000, 1 -> 0xffffffff
                 }
 
             case 3: // ROR
                 if (shift)
                 {
-                    c = EMU_BIT_GET(shift - 1, value);
+                    mRegisters.flag_c = BIT(shift - 1, value);
                     return evalRORImm32(value, shift);
                 }
                 else
                 {
-                    c = EMU_BIT_GET(0, value);
+                    mRegisters.flag_c = BIT(0, value);
                     return (value >> 1) | (mRegisters.flag_c << 31);
                 }
             }
             return 0;
         }
 
-        // Addressing modes ////////////////////////////////////////////////////
-
-        struct Invalid
+        template <uint32_t type>
+        uint32_t evalRegShift(uint32_t value, uint32_t shift)
         {
-        };
-
-        struct BranchOffset
-        {
-        };
-
-        struct BranchReg
-        {
-        };
-
-        struct SWI
-        {
-        };
-
-        struct BKPT
-        {
-        };
-
-        template <uint32_t Opcode, uint32_t S>
-        struct ALUBase
-        {
-            CpuArmInterpreter& cpu;
-            uint32_t rn;
-            uint32_t rn_value;
-            uint32_t rd;
-            uint32_t op2;
-            uint32_t clock;
-            uint32_t c;
-
-            ALUBase(CpuArmInterpreter& _cpu, uint32_t data)
-                : cpu(_cpu)
+            switch (type)
             {
-                c = cpu.mRegisters.flag_c;
-                rn = EMU_BITS_GET(16, 4, data);
-                rn_value = cpu.mRegisters.r[rn];
-                if (rn == 15)
-                    rn_value += 4;
-                rd = EMU_BITS_GET(12, 4, data);
+            case 0: // LSL
+                mRegisters.flag_c = BIT(32 - shift, value);
+                return value << (shift & 31);
+
+            case 1: // LSR
+                mRegisters.flag_c = BIT(shift - 1, value);
+                return static_cast<uint32_t>(value) >> static_cast<uint32_t>(shift);
+
+            case 2: // ASR
+                mRegisters.flag_c = BIT(shift - 1, value);
+                return static_cast<int32_t>(value) >> static_cast<int32_t>(shift);
+
+            case 3: // ROR
+                mRegisters.flag_c = BIT(shift - 1, value);
+                return evalRORImm32(value, shift);
             }
-
-            void save(uint32_t reg, uint32_t result)
-            {
-                cpu.mRegisters.r[reg] = result;
-                if (reg == 15)
-                {
-                    cpu.mPCNext = result;
-                    clock += 2;
-                }
-            }
-
-            void flags(uint32_t flags_zn)
-            {
-                cpu.mRegisters.flag_c = c;
-                cpu.mRegisters.flag_z = flags_zn;
-                cpu.mRegisters.flag_n = flags_zn;
-            }
-        };
-
-        template <uint32_t Opcode, uint32_t S, uint32_t ShiftType, uint32_t R>
-        struct ALURegImm : ALUBase<Opcode, S>
-        {
-            ALURegImm(CpuArmInterpreter& _cpu, uint32_t data)
-                : ALUBase(_cpu, data)
-            {
-                uint32_t imm = EMU_BITS_GET(7, 5, data);
-                uint32_t rm = EMU_BITS_GET(0, 4, data);
-                uint32_t rm_value = cpu.mRegisters.r[rm];
-                if (rm == 15)
-                    rm_value += 4;
-                op2 = cpu.evalShift<ShiftType>(c, rm_value, imm);
-                clock = 2;
-            }
-        };
-
-        template <uint32_t Opcode, uint32_t S, uint32_t ShiftType, uint32_t R>
-        struct ALURegReg : ALUBase<Opcode, S>
-        {
-            ALURegReg(CpuArmInterpreter& _cpu, uint32_t data)
-                : ALUBase(_cpu, data)
-            {
-                uint32_t rs = EMU_BITS_GET(8, 4, data);
-                uint32_t rm = EMU_BITS_GET(0, 4, data);
-                uint32_t rm_value = cpu.mRegisters.r[rm];
-                if (rm == 15)
-                    rm_value += 4;
-                op2 = cpu.evalShift<ShiftType>(c, rm_value, cpu.mRegisters.r[rs]);
-                clock = 3;
-            }
-        };
-
-        template <uint32_t Opcode, uint32_t S>
-        struct ALUImm : ALUBase<Opcode, S>
-        {
-            ALUImm(CpuArmInterpreter& _cpu, uint32_t data)
-                : ALUBase(_cpu, data)
-            {
-                uint32_t shift = EMU_BITS_GET(8, 4, data);
-                uint32_t imm = EMU_BITS_GET(0, 8, data);
-                op2 = cpu.evalRORImm32(imm, shift);
-                clock = 2;
-            }
-        };
-
-        struct MulRdRmRs
-        {
-        };
-
-        struct MulRdRmRsRn
-        {
-        };
-
-        struct MulRnRdRmRs
-        {
-        };
-
-        struct CLZ
-        {
-        };
-
-        struct QALU
-        {
-        };
-
-        template <uint32_t PSR>
-        struct MRS
-        {
-        };
-
-        template <uint32_t PSR>
-        struct MSRReg
-        {
-        };
-
-        template <uint32_t PSR>
-        struct MSRImm
-        {
-        };
-
-        template <uint32_t P, uint32_t U>
-        struct MemBase
-        {
-            CpuArmInterpreter& cpu;
-            uint32_t imm;
-            uint32_t rd_value;
-            uint32_t rn;
-            uint32_t mem;
-
-            MemBase(CpuArmInterpreter& _cpu, uint32_t data)
-                : cpu(_cpu)
-            {
-                imm = 0;
-                rd_value = cpu.mRegisters.r[EMU_BITS_GET(12, 4, data)];
-                rn = EMU_BITS_GET(16, 4, data);
-                mem = cpu.mRegisters.r[rn];
-                if (P)
-                    save_mem();
-            }
-
-            void save_mem()
-            {
-                if (!U)
-                    mem -= imm;
-                else
-                    mem += imm;
-                cpu.mRegisters.r[rn] = mem;
-            }
-
-            void pre_mem()
-            {
-                if (!P)
-                    save_mem();
-            }
-
-            void post_mem()
-            {
-                if (!P)
-                    save_mem();
-            }
-        };
-
-        template <uint32_t P, uint32_t U, uint32_t W>
-        struct MemImm : MemBase<P, U>
-        {
-            MemImm(CpuArmInterpreter& _cpu, uint32_t data)
-                : MemBase(_cpu, data)
-            {
-                imm = EMU_BITS_GET(0, 12, data);
-                pre_mem();
-            }
-        };
-
-        template <uint32_t P, uint32_t U, uint32_t W, uint32_t ShiftType>
-        struct MemReg : MemBase<P, U>
-        {
-            MemReg(CpuArmInterpreter& _cpu, uint32_t data)
-                : MemBase(_cpu, data)
-            {
-                uint32_t shift = EMU_BITS_GET(7, 5, data);
-                uint32_t rm = EMU_BITS_GET(0, 4, data);
-                uint32_t rm_value = cpu.mRegisters.r[rm];
-                if (rm == 15)
-                    rm_value += 4;
-                imm = cpu.evalShift<ShiftType>(cpu.mRegisters.flag_c, rm_value, shift);
-                pre_mem();
-            }
-        };
-
-        template <uint32_t P, uint32_t U, uint32_t W>
-        struct MemExReg
-        {
-        };
-
-        template <uint32_t P, uint32_t U, uint32_t W>
-        struct MemExImm
-        {
-        };
-
-        template <uint32_t P, uint32_t U, uint32_t S, uint32_t W>
-        struct MemBlock
-        {
-        };
-
-        struct SWP
-        {
-        };
-
-        template <uint32_t P, uint32_t U, uint32_t N, uint32_t W>
-        struct CoDataTrans
-        {
-        };
-
-        template <uint32_t P, uint32_t U, uint32_t N, uint32_t W>
-        struct CoDataTrans2
-        {
-        };
-
-        template <uint32_t CPOPC, uint32_t CP>
-        struct CoRegTrans
-        {
-        };
-
-        template <uint32_t CPOPC, uint32_t CP>
-        struct CoRegTrans2
-        {
-        };
-
-        template <uint32_t CPOPC, uint32_t CP>
-        struct CoDataOp
-        {
-        };
-
-        template <uint32_t CPOPC, uint32_t CP>
-        struct CoDataOp2
-        {
-        };
-
-        struct STREx
-        {
-        };
-
-        struct LDREx
-        {
-        };
+            return 0;
+        }
 
         // Instructions ////////////////////////////////////////////////////////
 
@@ -392,114 +168,218 @@ namespace
             EMU_NOT_IMPLEMENTED();
         }
 
+        template <uint32_t TKnownBits>
+        struct ALU
+        {
+            CpuArmInterpreter& cpu;
+            uint32_t Rn;
+            uint32_t Rd;
+            uint32_t Op2;
+            bool S;
+
+            ALU(CpuArmInterpreter& _cpu)
+                : cpu(_cpu)
+            {
+                uint32_t opcode = cpu.mOpcode;
+                Rn = BITS<19, 16>(opcode);
+                Rd = BITS<15, 12>(opcode);
+                S = BIT<20>(TKnownBits);
+                bool I = BIT<25>(TKnownBits);
+                if (I == 0)
+                {
+                    constexpr uint32_t ShiftType = BITS<6, 5>(TKnownBits);
+                    uint32_t Rm = BITS<3, 0>(opcode);
+                    bool R = BIT<4>(TKnownBits);
+                    if (R == 0)
+                    {
+                        uint32_t Is = BITS<11, 7>(opcode);
+                        Op2 = cpu.evalImmShift<ShiftType>(cpu.getRegister(Rm), Is);
+                    }
+                    else
+                    {
+                        uint32_t Rs = BITS<11, 8>(opcode);
+                        cpu.prefetch32();
+                        Op2 = cpu.evalRegShift<ShiftType>(cpu.getRegister(Rm), cpu.getRegister(Rs));
+                    }
+                }
+                else
+                {
+                    uint32_t Is = BITS<11, 8>(opcode);
+                    uint32_t Immediate = BITS<7, 0>(opcode);
+                    Op2 = evalRORImm32(Immediate, Is);
+                }
+            }
+
+            void saveResult(uint32_t result)
+            {
+                if (Rd == 15)
+                {
+                    EMU_NOT_IMPLEMENTED();
+                }
+                cpu.setRegister(Rd, result);
+            }
+
+            void saveFlagsLogical(uint32_t result)
+            {
+                if (S)
+                {
+                    cpu.mRegisters.flag_n = BIT<31>(result);
+                    cpu.mRegisters.flag_z = result == 0;
+                }
+            }
+
+            void saveFlagsArithmetic(uint32_t result, bool carry, bool overflow)
+            {
+                if (S)
+                {
+                    cpu.mRegisters.flag_n = BIT<31>(result);
+                    cpu.mRegisters.flag_z = result == 0;
+                    cpu.mRegisters.flag_c = carry;
+                    cpu.mRegisters.flag_v = overflow;
+                }
+            }
+        };
+
+        uint32_t addWithCarry(uint32_t a, uint32_t b, uint32_t c, bool& carry_out, bool& overflow_out)
+        {
+            uint64_t result_unsigned = static_cast<uint64_t>(a) + static_cast<uint64_t>(b) + static_cast<uint64_t>(c);
+            int64_t result_signed = static_cast<int64_t>(static_cast<int32_t>(a)) + static_cast<int64_t>(static_cast<int32_t>(b)) + static_cast<int64_t>(c);
+            uint64_t result = result_unsigned & 0xffffffff;
+            carry_out = result != result_unsigned;
+            overflow_out = static_cast<int64_t>(static_cast<int32_t>(result)) != result_signed;
+            return static_cast<uint32_t>(result);
+        }
+
         template <uint32_t TKnownBits> void insn_and()
         {
-            EMU_NOT_IMPLEMENTED();
-            //Addr addr(*this, insn);
-            //uint32_t result = addr.rn_value & addr.op2;
-            //addr.save(addr.rd, result);
-            //if (S) addr.flags(result); // or do this inside addr.flags()
-            //return addr.clock;
+            ALU<TKnownBits> alu(*this);
+            uint32_t result = alu.Rn & alu.Op2;
+            alu.saveResult(result);
+            alu.saveFlagsLogical(result);
         }
 
         template <uint32_t TKnownBits> void insn_eor()
         {
-            EMU_NOT_IMPLEMENTED();
-            //Addr addr(*this, insn);
-            //uint32_t result = addr.rn_value ^ addr.op2;
-            //addr.save(addr.rd, result);
-            //if (S) addr.flags(result); // or do this inside addr.flags()
-            //return addr.clock;
+            ALU<TKnownBits> alu(*this);
+            uint32_t result = alu.Rn ^ alu.Op2;
+            alu.saveResult(result);
+            alu.saveFlagsLogical(result);
         }
 
         template <uint32_t TKnownBits> void insn_sub()
         {
-            EMU_NOT_IMPLEMENTED();
+            ALU<TKnownBits> alu(*this);
+            bool carry, overflow;
+            uint32_t result = addWithCarry(alu.Rn, ~alu.Op2, 1, carry, overflow);
+            alu.saveResult(result);
+            alu.saveFlagsArithmetic(result, carry, overflow);
         }
 
         template <uint32_t TKnownBits> void insn_rsb()
         {
-            EMU_NOT_IMPLEMENTED();
+            ALU<TKnownBits> alu(*this);
+            bool carry, overflow;
+            uint32_t result = addWithCarry(~alu.Rn, alu.Op2, 1, carry, overflow);
+            alu.saveResult(result);
+            alu.saveFlagsArithmetic(result, carry, overflow);
         }
 
         template <uint32_t TKnownBits> void insn_add()
         {
-            EMU_NOT_IMPLEMENTED();
+            ALU<TKnownBits> alu(*this);
+            bool carry, overflow;
+            uint32_t result = addWithCarry(alu.Rn, alu.Op2, 0, carry, overflow);
+            alu.saveResult(result);
+            alu.saveFlagsArithmetic(result, carry, overflow);
         }
 
         template <uint32_t TKnownBits> void insn_adc()
         {
-            EMU_NOT_IMPLEMENTED();
+            ALU<TKnownBits> alu(*this);
+            bool carry, overflow;
+            uint32_t result = addWithCarry(~alu.Rn, alu.Op2, mRegisters.flag_c, carry, overflow);
+            alu.saveResult(result);
+            alu.saveFlagsArithmetic(result, carry, overflow);
         }
 
         template <uint32_t TKnownBits> void insn_sbc()
         {
-            EMU_NOT_IMPLEMENTED();
+            ALU<TKnownBits> alu(*this);
+            bool carry, overflow;
+            uint32_t result = addWithCarry(alu.Rn, ~alu.Op2, 1, carry, overflow);
+            alu.saveResult(result);
+            alu.saveFlagsArithmetic(result, carry, overflow);
         }
 
         template <uint32_t TKnownBits> void insn_rsc()
         {
-            EMU_NOT_IMPLEMENTED();
+            ALU<TKnownBits> alu(*this);
+            bool carry, overflow;
+            uint32_t result = addWithCarry(~alu.Rn, alu.Op2, mRegisters.flag_c, carry, overflow);
+            alu.saveResult(result);
+            alu.saveFlagsArithmetic(result, carry, overflow);
         }
 
         template <uint32_t TKnownBits> void insn_tst()
         {
-            EMU_NOT_IMPLEMENTED();
+            ALU<TKnownBits> alu(*this);
+            uint32_t result = alu.Rn & alu.Op2;
+            alu.saveFlagsLogical(result);
         }
 
         template <uint32_t TKnownBits> void insn_teq()
         {
-            EMU_NOT_IMPLEMENTED();
+            ALU<TKnownBits> alu(*this);
+            uint32_t result = alu.Rn ^ alu.Op2;
+            alu.saveFlagsLogical(result);
         }
 
         template <uint32_t TKnownBits> void insn_cmp()
         {
-            EMU_NOT_IMPLEMENTED();
+            ALU<TKnownBits> alu(*this);
+            bool carry, overflow;
+            uint32_t result = addWithCarry(alu.Rn, ~alu.Op2, 1, carry, overflow);
+            alu.saveFlagsArithmetic(result, carry, overflow);
         }
 
         template <uint32_t TKnownBits> void insn_cmn()
         {
-            EMU_NOT_IMPLEMENTED();
+            ALU<TKnownBits> alu(*this);
+            bool carry, overflow;
+            uint32_t result = addWithCarry(alu.Rn, alu.Op2, 0, carry, overflow);
+            alu.saveFlagsArithmetic(result, carry, overflow);
         }
 
         template <uint32_t TKnownBits> void insn_orr()
         {
-            EMU_NOT_IMPLEMENTED();
-            //Addr addr(*this, insn);
-            //uint32_t result = addr.rn_value | addr.op2;
-            //addr.save(addr.rd, result);
-            //if (S) addr.flags(result); // or do this inside addr.flags()
-            //return addr.clock;
+            ALU<TKnownBits> alu(*this);
+            uint32_t result = alu.Rn | alu.Op2;
+            alu.saveResult(result);
+            alu.saveFlagsLogical(result);
         }
 
         template <uint32_t TKnownBits> void insn_mov()
         {
-            EMU_NOT_IMPLEMENTED();
-            //Addr addr(*this, insn);
-            //uint32_t result = addr.op2;
-            //addr.save(addr.rd, result);
-            //if (S) addr.flags(result); // or do this inside addr.flags()
-            //return addr.clock;
+            ALU<TKnownBits> alu(*this);
+            uint32_t result = alu.Op2;
+            alu.saveResult(result);
+            alu.saveFlagsLogical(result);
         }
 
         template <uint32_t TKnownBits> void insn_bic()
         {
-            EMU_NOT_IMPLEMENTED();
-            //Addr addr(*this, insn);
-            //uint32_t result = addr.rn_value & ~addr.op2;
-            //addr.save(addr.rd, result);
-            //if (S) addr.flags(result); // or do this inside addr.flags()
-            //return addr.clock;
+            ALU<TKnownBits> alu(*this);
+            uint32_t result = alu.Rn & ~alu.Op2;
+            alu.saveResult(result);
+            alu.saveFlagsLogical(result);
         }
 
         template <uint32_t TKnownBits> void insn_mvn()
         {
-            EMU_NOT_IMPLEMENTED();
-            //Addr addr(*this, insn);
-            //uint32_t result = ~addr.op2;
-            //addr.save(addr.rd, result);
-            //if (S) addr.flags(result); // or do this inside addr.flags()
-            //return addr.clock;
+            ALU<TKnownBits> alu(*this);
+            uint32_t result = ~alu.Op2;
+            alu.saveResult(result);
+            alu.saveFlagsLogical(result);
         }
 
         template <uint32_t TKnownBits> void insn_mul()
