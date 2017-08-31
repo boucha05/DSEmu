@@ -31,6 +31,25 @@ namespace
     {
         // Helpers /////////////////////////////////////////////////////////////
 
+#if EMU_CONFIG_LITTLE_ENDIAN
+        static const uint32_t MEM_ACCESS_ENDIAN_8 = 0x00000000;
+        static const uint32_t MEM_ACCESS_ENDIAN_16 = 0x00000000;
+#else
+        static const uint32_t MEM_ACCESS_ENDIAN_8 = 0x00000003;
+        static const uint32_t MEM_ACCESS_ENDIAN_16 = 0x00000002;
+#endif
+
+        bool conditionFlagsPassed()
+        {
+            switch (BITS<31, 28>(mOpcode))
+            {
+            case 0xe: return true;
+            default:
+                EMU_NOT_IMPLEMENTED();
+            }
+            return false;
+        }
+
         uint32_t getRegister(uint32_t regIndex)
         {
             return mRegisters.r[regIndex];
@@ -252,6 +271,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_and()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             uint32_t result = alu.Rn & alu.Op2;
             alu.saveResult(result);
@@ -260,6 +280,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_eor()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             uint32_t result = alu.Rn ^ alu.Op2;
             alu.saveResult(result);
@@ -268,6 +289,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_sub()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             bool carry, overflow;
             uint32_t result = addWithCarry(alu.Rn, ~alu.Op2, 1, carry, overflow);
@@ -277,6 +299,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_rsb()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             bool carry, overflow;
             uint32_t result = addWithCarry(~alu.Rn, alu.Op2, 1, carry, overflow);
@@ -286,6 +309,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_add()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             bool carry, overflow;
             uint32_t result = addWithCarry(alu.Rn, alu.Op2, 0, carry, overflow);
@@ -295,6 +319,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_adc()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             bool carry, overflow;
             uint32_t result = addWithCarry(~alu.Rn, alu.Op2, mRegisters.flag_c, carry, overflow);
@@ -304,6 +329,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_sbc()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             bool carry, overflow;
             uint32_t result = addWithCarry(alu.Rn, ~alu.Op2, 1, carry, overflow);
@@ -313,6 +339,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_rsc()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             bool carry, overflow;
             uint32_t result = addWithCarry(~alu.Rn, alu.Op2, mRegisters.flag_c, carry, overflow);
@@ -322,6 +349,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_tst()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             uint32_t result = alu.Rn & alu.Op2;
             alu.saveFlagsLogical(result);
@@ -329,6 +357,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_teq()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             uint32_t result = alu.Rn ^ alu.Op2;
             alu.saveFlagsLogical(result);
@@ -336,6 +365,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_cmp()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             bool carry, overflow;
             uint32_t result = addWithCarry(alu.Rn, ~alu.Op2, 1, carry, overflow);
@@ -344,6 +374,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_cmn()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             bool carry, overflow;
             uint32_t result = addWithCarry(alu.Rn, alu.Op2, 0, carry, overflow);
@@ -352,6 +383,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_orr()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             uint32_t result = alu.Rn | alu.Op2;
             alu.saveResult(result);
@@ -360,6 +392,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_mov()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             uint32_t result = alu.Op2;
             alu.saveResult(result);
@@ -368,6 +401,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_bic()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             uint32_t result = alu.Rn & ~alu.Op2;
             alu.saveResult(result);
@@ -376,6 +410,7 @@ namespace
 
         template <uint32_t TKnownBits> void insn_mvn()
         {
+            if (!conditionFlagsPassed()) return;
             ALU<TKnownBits> alu(*this);
             uint32_t result = ~alu.Op2;
             alu.saveResult(result);
@@ -527,18 +562,135 @@ namespace
             EMU_NOT_IMPLEMENTED();
         }
 
+        template <uint32_t TKnownBits>
+        struct MemorySDT
+        {
+            MemorySDT(CpuArmInterpreter& cpu)
+            {
+                uint32_t opcode = cpu.mOpcode;
+                uint32_t Rn = BITS<19, 16>(opcode);
+                uint32_t Rd = BITS<15, 12>(opcode);
+
+                bool I = BIT<25>(TKnownBits);
+                bool P = BIT<24>(TKnownBits);
+                bool U = BIT<23>(TKnownBits);
+                bool B = BIT<22>(TKnownBits);
+
+                // Offset
+                uint32_t offset;
+                if (I == 0)
+                {
+                    uint32_t Immediate = BITS<11, 0>(opcode);
+                    offset = U ? Immediate : (0 - Immediate);
+                }
+                else
+                {
+                    uint32_t Is = BITS<11, 7>(opcode);
+                    constexpr uint32_t ShiftType = BITS<6, 5>(TKnownBits);
+                    uint32_t Rm = BITS<3, 0>(opcode);
+                    offset = cpu.evalImmShift<ShiftType>(cpu.getRegister(Rm), Is);
+                }
+
+                // Pre-increment
+                uint32_t address = cpu.getRegister(Rn);
+                if (P == 1)
+                {
+                    address += offset;
+                    bool W = BIT<21>(TKnownBits);
+                    if (W)
+                        cpu.setRegister(Rn, address);
+                }
+                else
+                {
+                    // TODO: Force non priviledged access
+                    bool T = BIT<21>(TKnownBits);
+                    if (T)
+                    {
+                        EMU_NOT_IMPLEMENTED();
+                    }
+                }
+
+                // Memory access
+                bool L = BIT<20>(TKnownBits);
+                if (L == 0)
+                {
+                    // Store
+                    if (B)
+                    {
+                        // STRB
+                        cpu.getMemoryBus().write8(address ^ MEM_ACCESS_ENDIAN_8, static_cast<uint8_t>(Rd));
+                    }
+                    else
+                    {
+                        // STR
+                        cpu.getMemoryBus().write32(address, Rd);
+                    }
+                }
+                else
+                {
+                    // Load
+                    if (B)
+                    {
+                        // LDRB
+                        Rd = static_cast<uint32_t>(cpu.getMemoryBus().read8(address ^ MEM_ACCESS_ENDIAN_8));
+                    }
+                    else
+                    {
+                        // LDR
+                        Rd = cpu.getMemoryBus().read32(address);
+                    }
+                }
+
+                // Post-increment
+                if (P == 0)
+                {
+                    // TODO: Restore priviledge access
+                    address += offset;
+                    cpu.setRegister(Rn, address);
+                }
+            }
+
+            void saveResult(uint32_t result)
+            {
+                if (Rd == 15)
+                {
+                    EMU_NOT_IMPLEMENTED();
+                }
+                cpu.setRegister(Rd, result);
+            }
+
+            void saveFlagsLogical(uint32_t result)
+            {
+                if (S)
+                {
+                    cpu.mRegisters.flag_n = BIT<31>(result);
+                    cpu.mRegisters.flag_z = result == 0;
+                }
+            }
+
+            void saveFlagsArithmetic(uint32_t result, bool carry, bool overflow)
+            {
+                if (S)
+                {
+                    cpu.mRegisters.flag_n = BIT<31>(result);
+                    cpu.mRegisters.flag_z = result == 0;
+                    cpu.mRegisters.flag_c = carry;
+                    cpu.mRegisters.flag_v = overflow;
+                }
+            }
+        };
+
+
         template <uint32_t TKnownBits> void insn_str()
         {
-            EMU_NOT_IMPLEMENTED();
-            //Addr addr(*this, insn);
-            //mMemory->write32(addr.mem, addr.rd_value);
-            //addr.post_mem();
-            //return 2;
+            if (!conditionFlagsPassed()) return;
+            MemorySDT<TKnownBits> memory(*this);
         }
 
         template <uint32_t TKnownBits> void insn_ldr()
         {
-            EMU_NOT_IMPLEMENTED();
+            if (!conditionFlagsPassed()) return;
+            MemorySDT<TKnownBits> memory(*this);
         }
 
         template <uint32_t TKnownBits> void insn_stm()

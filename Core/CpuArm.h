@@ -80,6 +80,11 @@ namespace emu
             return mRegisters;
         }
 
+        MemoryBus& getMemoryBus()
+        {
+            return *mMemory;
+        }
+
     protected:
         static const uint32_t   MODE_USR = 0x10;
         static const uint32_t   MODE_FIQ = 0x11;
