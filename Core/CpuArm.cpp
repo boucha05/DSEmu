@@ -11,7 +11,7 @@ namespace emu
     {
     }
 
-    bool CpuArm::create(const Config& config, MemoryBus& memory, Clock& clock, uint32_t clockDivider)
+    bool CpuArm::create(const Config& config, MemoryBus32& memory, Clock& clock, uint32_t clockDivider)
     {
         mConfig = config;
         mMemory = &memory;
@@ -65,9 +65,48 @@ namespace emu
         prefetch32();
     }
 
+#ifdef EMU_CONFIG_LITTLE_ENDIAN
+#define ENDIAN_BITS_8   0x0
+#define ENDIAN_BITS_16  0x0
+#else
+#define ENDIAN_BITS_8   0x3
+#define ENDIAN_BITS_16  0x1
+#endif
+
+    uint8_t CpuArm::read8(uint32_t addr)
+    {
+        uint32_t mem = mMemory->read(addr & ~0x3);
+        return reinterpret_cast<const uint8_t*>(&mem)[(addr & 0x3) ^ ENDIAN_BITS_8];
+    }
+
+    uint16_t CpuArm::read16(uint32_t addr)
+    {
+        uint32_t mem = mMemory->read(addr & ~0x1);
+        return reinterpret_cast<const uint16_t*>(&mem)[(addr & 0x1) ^ ENDIAN_BITS_16];
+    }
+
     uint32_t CpuArm::read32(uint32_t addr)
     {
-        return mMemory->read32(addr);
+        return mMemory->read(addr);
+    }
+
+    void CpuArm::write8(uint32_t addr, uint8_t value)
+    {
+        uint32_t mem = mMemory->read(addr & ~0x3);
+        reinterpret_cast<uint8_t*>(&mem)[(addr & 0x3) ^ ENDIAN_BITS_8] = value;
+        mMemory->write(addr & ~0x3, mem);
+    }
+
+    void CpuArm::write16(uint32_t addr, uint16_t value)
+    {
+        uint32_t mem = mMemory->read(addr & ~0x1);
+        reinterpret_cast<uint16_t*>(&mem)[(addr & 0x1) ^ ENDIAN_BITS_8] = value;
+        mMemory->write(addr & ~0x1, mem);
+    }
+
+    void CpuArm::write32(uint32_t addr, uint32_t value)
+    {
+        mMemory->write(addr, value);
     }
 
     void CpuArm::prefetch32()

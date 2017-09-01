@@ -618,12 +618,12 @@ namespace
                     if (B)
                     {
                         // STRB
-                        cpu.getMemoryBus().write8(address ^ MEM_ACCESS_ENDIAN_8, static_cast<uint8_t>(Rd));
+                        cpu.write8(address ^ MEM_ACCESS_ENDIAN_8, static_cast<uint8_t>(Rd));
                     }
                     else
                     {
                         // STR
-                        cpu.getMemoryBus().write32(address, Rd);
+                        cpu.write32(address, Rd);
                     }
                 }
                 else
@@ -632,12 +632,12 @@ namespace
                     if (B)
                     {
                         // LDRB
-                        Rd = static_cast<uint32_t>(cpu.getMemoryBus().read8(address ^ MEM_ACCESS_ENDIAN_8));
+                        Rd = static_cast<uint32_t>(cpu.read8(address ^ MEM_ACCESS_ENDIAN_8));
                     }
                     else
                     {
                         // LDR
-                        Rd = cpu.getMemoryBus().read32(address);
+                        Rd = cpu.read32(address);
                     }
                 }
 

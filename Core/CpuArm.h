@@ -66,12 +66,17 @@ namespace emu
 
         CpuArm();
         ~CpuArm();
-        bool create(const Config& config, MemoryBus& memory, Clock& clock, uint32_t clockDivider);
+        bool create(const Config& config, MemoryBus32& memory, Clock& clock, uint32_t clockDivider);
         virtual int32_t execute(int32_t tick) override;
         virtual void advance(int32_t tick) override;
         void reset();
         void setPC(uint32_t addr);
+        uint8_t read8(uint32_t addr);
+        uint16_t read16(uint32_t addr);
         uint32_t read32(uint32_t addr);
+        void write8(uint32_t addr, uint8_t value);
+        void write16(uint32_t addr, uint16_t value);
+        void write32(uint32_t addr, uint32_t value);
         virtual uint32_t disassemble(char* buffer, size_t size, uint32_t addr, bool thumb) = 0;
         virtual uint32_t execute() = 0;
 
@@ -80,7 +85,7 @@ namespace emu
             return mRegisters;
         }
 
-        MemoryBus& getMemoryBus()
+        MemoryBus32& getMemoryBus()
         {
             return *mMemory;
         }
@@ -113,7 +118,7 @@ namespace emu
         void trace();
 
         Config          mConfig;
-        MemoryBus*      mMemory;
+        MemoryBus32*    mMemory;
         Clock*          mClock;
         uint32_t        mClockDivider;
         uint32_t        mExecutedTick;

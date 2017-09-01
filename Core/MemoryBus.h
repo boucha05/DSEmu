@@ -6,171 +6,256 @@
 
 namespace emu
 {
-    class MemoryBus
+    template <typename TAddrType, typename TDataType>
+    class MemoryBusT
     {
     public:
-        typedef Delegate<uint8_t(uint32_t)>         Read8Delegate;
-        typedef Delegate<uint16_t(uint32_t)>        Read16Delegate;
-        typedef Delegate<uint32_t(uint32_t)>        Read32Delegate;
-        typedef Delegate<void(uint32_t, uint8_t)>   Write8Delegate;
-        typedef Delegate<void(uint32_t, uint16_t)>  Write16Delegate;
-        typedef Delegate<void(uint32_t, uint32_t)>  Write32Delegate;
+        typedef typename TAddrType AddrType;
+        typedef typename TDataType DataType;
+
+        typedef Delegate<DataType(AddrType)>        ReadDelegate;
+        typedef Delegate<void(AddrType, DataType)>  WriteDelegate;
 
         struct Accessor
         {
-            std::string         mName;
-            uint8_t*            mMemory;
-        };
-
-        struct ReadAccessor : public Accessor
-        {
-            ReadAccessor& setName(const char* value)
+            Accessor& setName(const char* value)
             {
-                mName = value;
+                name = value;
                 return *this;
             }
 
-            ReadAccessor& setMemory(const void* value)
+            Accessor& setMemoryWritable(void* value)
             {
-                mMemory = static_cast<uint8_t*>(const_cast<void*>(value));
+                readMemory = static_cast<const uint8_t*>(value);
+                readFunc = ReadDelegate::make<invalidRead>();
+                writeMemory = static_cast<uint8_t*>(value);
+                writeFunc = WriteDelegate::make<invalidWrite>();
                 return *this;
             }
 
-            ReadAccessor& setRead8(const Read8Delegate& value)
+            Accessor& setMemoryReadOnly(const void* value)
             {
-                mMemory = nullptr;
-                mRead8 = value;
+                readMemory = static_cast<const uint8_t*>(value);
+                readFunc = ReadDelegate::make<invalidRead>();
+                writeMemory = nullptr;
                 return *this;
             }
 
-            ReadAccessor& setRead16(const Read16Delegate& value)
+            Accessor& setReadFunc(ReadDelegate value)
             {
-                mMemory = nullptr;
-                mRead16 = value;
+                readMemory = nullptr;
+                readFunc = value;
                 return *this;
             }
 
-            ReadAccessor& setRead32(const Read32Delegate& value)
+            Accessor& setWriteFunc(WriteDelegate value)
             {
-                mMemory = nullptr;
-                mRead32 = value;
+                writeMemory = nullptr;
+                writeFunc = value;
                 return *this;
             }
 
-            Read8Delegate       mRead8;
-            Read16Delegate      mRead16;
-            Read32Delegate      mRead32;
-        };
-
-        struct WriteAccessor : public Accessor
-        {
-            WriteAccessor& setName(const char* value)
+            static DataType invalidRead(AddrType addr)
             {
-                mName = value;
-                return *this;
+                printf("Invalid read access at address 0x%08x\n", addr);
+                EMU_ASSERT(false);
+                return 0;
             }
 
-            WriteAccessor& setMemory(void* value)
+            static void invalidWrite(AddrType addr, DataType value)
             {
-                mMemory = static_cast<uint8_t*>(value);
-                return *this;
+                printf("Invalid write access at address 0x%08x (value = 0x%08x)\n", addr, value);
+                EMU_ASSERT(false);
             }
 
-            WriteAccessor& setWrite8(const Write8Delegate& value)
-            {
-                mMemory = nullptr;
-                mWrite8 = value;
-                return *this;
-            }
-
-            WriteAccessor& setWrite16(const Write16Delegate& value)
-            {
-                mMemory = nullptr;
-                mWrite16 = value;
-                return *this;
-            }
-
-            WriteAccessor& setWrite32(const Write32Delegate& value)
-            {
-                mMemory = nullptr;
-                mWrite32 = value;
-                return *this;
-            }
-
-            Write8Delegate      mWrite8;
-            Write16Delegate     mWrite16;
-            Write32Delegate     mWrite32;
-        };
-
-        struct ReadWriteAccessor
-        {
-            ReadWriteAccessor& setName(const char* value)
-            {
-                read.setName(value);
-                write.setName(value);
-                return *this;
-            }
-
-            ReadWriteAccessor& setMemory(void* value)
-            {
-                read.setMemory(value);
-                write.setMemory(value);
-                return *this;
-            }
-
-            ReadAccessor        read;
-            WriteAccessor       write;
+            std::string         name;
+            const uint8_t*      readMemory{ nullptr };
+            ReadDelegate        readFunc{ ReadDelegate::make<invalidRead>() };
+            uint8_t*            writeMemory{ nullptr };
+            WriteDelegate       writeFunc{ WriteDelegate::make<invalidWrite>() };
         };
 
         struct Page
         {
             struct Item
             {
-                uint32_t        mBase;
-                uint32_t        mLimit;
-                uint32_t        mOffset;
+                AddrType        mBase;
+                AddrType        mLimit;
+                AddrType        mOffset;
                 Accessor*       mAccessor;
             };
 
             std::vector<Item>   mItems;
         };
 
-        MemoryBus();
-        ~MemoryBus();
-        bool create(uint32_t memSizeLog2, uint32_t pageSizeLog2);
-        bool addRange(uint32_t base, uint32_t size, ReadAccessor& readAccessor);
-        bool addRange(uint32_t base, uint32_t size, WriteAccessor& writeAccessor);
-        bool addRange(uint32_t base, uint32_t size, ReadAccessor& readAccessor, WriteAccessor& writeAccessor);
-        bool addRange(uint32_t base, uint32_t size, ReadWriteAccessor& readWriteAccessor);
-        uint8_t read8(uint32_t addr);
-        uint16_t read16(uint32_t addr);
-        uint32_t read32(uint32_t addr);
-        void write8(uint32_t addr, uint8_t value);
-        void write16(uint32_t addr, uint16_t value);
-        void write32(uint32_t addr, uint32_t value);
-        void export8(uint32_t addr, void* data, size_t count);
-        void export16(uint32_t addr, void* data, size_t count);
-        void export32(uint32_t addr, void* data, size_t count);
-        void import8(uint32_t addr, const void* data, size_t count);
-        void import16(uint32_t addr, const void* data, size_t count);
-        void import32(uint32_t addr, const void* data, size_t count);
+        bool create(AddrType memSizeLog2, AddrType pageSizeLog2)
+        {
+            EMU_VERIFY(memSizeLog2 <= 8 * sizeof(AddrType));
+            EMU_VERIFY(pageSizeLog2 <= memSizeLog2);
+
+            mMemSizeLog2 = memSizeLog2;
+            mMemLimit = (static_cast<AddrType>(1) << memSizeLog2) - static_cast<AddrType>(1);
+            mPageSizeLog2 = pageSizeLog2;
+            mPageLimit = (static_cast<AddrType>(1) << pageSizeLog2) - static_cast<AddrType>(1);
+
+            AddrType pageSize = mPageLimit + static_cast<AddrType>(1);
+            AddrType pageCount = static_cast<AddrType>(1) << (mMemSizeLog2 - mPageSizeLog2);
+            mPages.resize(pageCount);
+            Page::Item pageItem = { 0, mPageLimit, 0, &mInvalidMemory };
+            for (AddrType pageIndex = 0; pageIndex < pageCount; ++pageIndex)
+            {
+                mPages[pageIndex].mItems.push_back(pageItem);
+
+                pageItem.mBase += pageSize;
+                pageItem.mLimit += pageSize;
+                pageItem.mOffset += pageSize;
+            }
+
+            return true;
+        }
+
+        bool addRange(AddrType base, AddrType size, Accessor& accessor)
+        {
+            EMU_VERIFY((base & 0x0f) == 0);
+            EMU_VERIFY((size & 0x0f) == 0);
+
+            AddrType limit = base + size - 1;
+            EMU_VERIFY(limit >= base);
+            EMU_VERIFY(limit <= mMemLimit);
+
+            AddrType pageIndexLimit = limit >> mPageSizeLog2;
+            AddrType pageBase = base & ~mPageLimit;
+            AddrType pageSize = mPageLimit + 1;
+            AddrType pageLimit = pageBase + mPageLimit;
+            for (AddrType pageIndex = base >> mPageSizeLog2; pageIndex <= pageIndexLimit; ++pageIndex)
+            {
+                Page::Item newItem;
+                newItem.mBase = std::max(base, pageBase);
+                newItem.mLimit = std::min(limit, pageLimit);
+                newItem.mOffset = base;
+                newItem.mAccessor = &accessor;
+
+                auto& page = mPages[pageIndex];
+                auto item = page.mItems.begin();
+
+                // Skip items where the range is before our item
+                while (item->mLimit < newItem.mBase)
+                    ++item;
+
+                // Slice previous item in two at base address if applicable
+                if (item->mBase < newItem.mBase)
+                {
+                    Page::Item nextItem = *item;
+                    auto delta = newItem.mBase - nextItem.mBase;
+                    nextItem.mBase += delta;
+                    nextItem.mOffset += delta;
+
+                    item->mLimit = newItem.mBase - 1;
+                    item = page.mItems.insert(item, nextItem);
+                }
+
+                // Insert our item
+                item = ++page.mItems.insert(item, newItem);
+
+                // Now remove all items with a limit smaller than our limit
+                while ((item != page.mItems.end()) && (item->mLimit <= newItem.mLimit))
+                    item = page.mItems.erase(item);
+
+                // Now make sure the current item starts right after our new item limit
+                if ((item != page.mItems.end()) && (item->mBase <= newItem.mLimit))
+                {
+                    auto delta = newItem.mLimit + 1 - item->mBase;
+                    item->mBase += delta;
+                    item->mOffset += delta;
+                }
+
+                EMU_ASSERT(validatePage(page, pageBase, pageSize));
+
+                pageBase += pageSize;
+                pageLimit += pageSize;
+            }
+            return true;
+        }
+
+        DataType read(AddrType addr)
+        {
+            auto item = findPageItem(addr);
+            auto addrFixed = addr - item->mOffset;
+            auto accessor = item->mAccessor;
+            if (accessor->readMemory)
+            {
+                return *reinterpret_cast<const DataType*>(accessor->readMemory + addrFixed);
+            }
+            else
+            {
+                return accessor->readFunc(addr);
+            }
+        }
+
+        void write(AddrType addr, DataType value)
+        {
+            auto item = findPageItem(addr);
+            auto addrFixed = addr - item->mOffset;
+            auto accessor = item->mAccessor;
+            if (accessor->writeMemory)
+            {
+                *reinterpret_cast<DataType*>(accessor->writeMemory + addrFixed) = value;
+            }
+            else
+            {
+                return accessor->writeFunc(addr, value);
+            }
+        }
+
+        void read(AddrType addr, DataType* data, size_t count)
+        {
+            for (size_t index = 0; index < count; ++index)
+            {
+                data[index] = read(addr);
+                addr += sizeof(DataType);
+            }
+        }
+
+        void write(AddrType addr, const DataType* data, size_t count)
+        {
+            for (size_t index = 0; index < count; ++index)
+            {
+                write(addr, data[index]);
+                addr += sizeof(DataType);
+            }
+        }
 
     private:
-        bool addRange(std::vector<Page>& pageTable, uint32_t base, uint32_t size, Accessor& accessor);
-        Page::Item* findPageItem(std::vector<Page>& pageTable, uint32_t addr);
-        uint8_t invalidRead8(uint32_t addr);
-        uint16_t invalidRead16(uint32_t addr);
-        uint32_t invalidRead32(uint32_t addr);
-        void invalidWrite8(uint32_t addr, uint8_t value);
-        void invalidWrite16(uint32_t addr, uint16_t value);
-        void invalidWrite32(uint32_t addr, uint32_t value);
+        typename Page::Item* findPageItem(AddrType addr)
+        {
+            EMU_ASSERT(addr <= mMemLimit);
+            uint32_t pageIndex = addr >> mPageSizeLog2;
+            auto item = mPages[pageIndex].mItems.data();
+            while (addr < item->mBase)
+                ++item;
+            return item;
+        }
 
-        uint32_t            mMemSizeLog2;
-        uint32_t            mPageSizeLog2;
-        uint32_t            mMemLimit;
-        uint32_t            mPageLimit;
-        ReadWriteAccessor   mInvalidMemory;
-        std::vector<Page>   mReadPages;
-        std::vector<Page>   mWritePages;
+        static bool validatePage(Page& page, AddrType pageBase, AddrType pageSize)
+        {
+            AddrType addr = pageBase;
+            for (auto item : page.mItems)
+            {
+                EMU_VERIFY(item.mBase == addr);
+                EMU_VERIFY(item.mLimit > item.mBase);
+                addr = item.mLimit + 1;
+            }
+            EMU_VERIFY(addr == pageBase + pageSize);
+            return true;
+        }
+
+        AddrType            mMemSizeLog2{ 0 };
+        AddrType            mPageSizeLog2{ 0 };
+        AddrType            mMemLimit{ 0 };
+        AddrType            mPageLimit{ 0 };
+        Accessor            mInvalidMemory;
+        std::vector<Page>   mPages;
     };
+
+    typedef MemoryBusT<uint32_t, uint32_t> MemoryBus32;
 }
