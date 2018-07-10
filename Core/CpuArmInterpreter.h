@@ -27,6 +27,20 @@ namespace
         return static_cast<T>((value >> bit) & 0x01);
     }
 
+    static const uint32_t KNOWN_BITS_MASK = 0x0ff000f0;
+
+    template <uint8_t bit, typename T> constexpr T KNOWN_BIT(T value)
+    {
+        static_assert(((1 << bit) & ~KNOWN_BITS_MASK) == 0, "Invalid bit passed to KNOWN_BIT");
+        return BIT<bit>(value);
+    }
+
+    template <uint8_t bitEnd, uint8_t bitStart, typename T> constexpr T KNOWN_BITS(T value)
+    {
+        static_assert((((((1 << (bitEnd - bitStart + 1)) - 1) << bitStart)) & ~KNOWN_BITS_MASK) == 0, "Invalid bits passed to KNOWN_BIT");
+        return BITS<bitEnd, bitStart>(value);
+    }
+
     struct CpuArmInterpreter : public emu::CpuArm
     {
         // Helpers /////////////////////////////////////////////////////////////
@@ -202,13 +216,13 @@ namespace
                 uint32_t opcode = cpu.mOpcode;
                 Rn = BITS<19, 16>(opcode);
                 Rd = BITS<15, 12>(opcode);
-                S = BIT<20>(TKnownBits);
-                bool I = BIT<25>(TKnownBits);
+                S = KNOWN_BIT<20>(TKnownBits);
+                bool I = KNOWN_BIT<25>(TKnownBits);
                 if (I == 0)
                 {
-                    constexpr uint32_t ShiftType = BITS<6, 5>(TKnownBits);
+                    constexpr uint32_t ShiftType = KNOWN_BITS<6, 5>(TKnownBits);
                     uint32_t Rm = BITS<3, 0>(opcode);
-                    bool R = BIT<4>(TKnownBits);
+                    bool R = KNOWN_BIT<4>(TKnownBits);
                     if (R == 0)
                     {
                         uint32_t Is = BITS<11, 7>(opcode);
@@ -571,10 +585,10 @@ namespace
                 uint32_t Rn = BITS<19, 16>(opcode);
                 uint32_t Rd = BITS<15, 12>(opcode);
 
-                bool I = BIT<25>(TKnownBits);
-                bool P = BIT<24>(TKnownBits);
-                bool U = BIT<23>(TKnownBits);
-                bool B = BIT<22>(TKnownBits);
+                bool I = KNOWN_BIT<25>(TKnownBits);
+                bool P = KNOWN_BIT<24>(TKnownBits);
+                bool U = KNOWN_BIT<23>(TKnownBits);
+                bool B = KNOWN_BIT<22>(TKnownBits);
 
                 // Offset
                 uint32_t offset;
@@ -586,7 +600,7 @@ namespace
                 else
                 {
                     uint32_t Is = BITS<11, 7>(opcode);
-                    constexpr uint32_t ShiftType = BITS<6, 5>(TKnownBits);
+                    constexpr uint32_t ShiftType = KNOWN_BITS<6, 5>(TKnownBits);
                     uint32_t Rm = BITS<3, 0>(opcode);
                     offset = cpu.evalImmShift<ShiftType>(cpu.getRegister(Rm), Is);
                 }
@@ -596,14 +610,14 @@ namespace
                 if (P == 1)
                 {
                     address += offset;
-                    bool W = BIT<21>(TKnownBits);
+                    bool W = KNOWN_BIT<21>(TKnownBits);
                     if (W)
                         cpu.setRegister(Rn, address);
                 }
                 else
                 {
                     // TODO: Force non priviledged access
-                    bool T = BIT<21>(TKnownBits);
+                    bool T = KNOWN_BIT<21>(TKnownBits);
                     if (T)
                     {
                         EMU_NOT_IMPLEMENTED();
@@ -611,7 +625,7 @@ namespace
                 }
 
                 // Memory access
-                bool L = BIT<20>(TKnownBits);
+                bool L = KNOWN_BIT<20>(TKnownBits);
                 if (L == 0)
                 {
                     // Store
