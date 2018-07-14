@@ -182,133 +182,130 @@ namespace
         }
 
         template <uint32_t TKnownBits>
-        struct ALU
+        void armDataProcRegImm()
         {
-            CpuArmInterpreter& cpu;
-            uint32_t Rn;
-            uint32_t Rd;
-            uint32_t Op2;
-            uint32_t Cin;
-            bool S;
+            if (!conditionFlagsPassed()) return;
+            uint32_t Rm = BITS<3, 0>(mOpcode);
+            uint32_t Is = BITS<11, 7>(mOpcode);
+            constexpr uint32_t ShiftType = KNOWN_BITS<6, 5>(TKnownBits);
+            ShiftResult shiftResult = evalImmShift<ShiftType>(mRegisters.r[Rm], Is);
+            armALU<TKnownBits>(shiftResult.value, shiftResult.cf);
+        }
 
-            ALU(CpuArmInterpreter& _cpu)
-                : cpu(_cpu)
+        template <uint32_t TKnownBits>
+        void armDataProcRegReg()
+        {
+            if (!conditionFlagsPassed()) return;
+            uint32_t Rm = BITS<3, 0>(mOpcode);
+            uint32_t Rs = BITS<11, 8>(mOpcode);
+            constexpr uint32_t ShiftType = KNOWN_BITS<6, 5>(TKnownBits);
+            ShiftResult shiftResult = evalRegShift<ShiftType>(mRegisters.r[Rm], mRegisters.r[Rs]);
+            armALU<TKnownBits>(shiftResult.value, shiftResult.cf);
+        }
+
+        template <uint32_t TKnownBits>
+        void armDataProcImm()
+        {
+            if (!conditionFlagsPassed()) return;
+            uint32_t Is = BITS<11, 8>(mOpcode);
+            uint32_t Immediate = BITS<7, 0>(mOpcode);
+            auto value = evalRORImm32(Immediate, Is);
+            armALU<TKnownBits>(value, mRegisters.flag_c);
+        }
+
+        template <uint32_t TKnownBits>
+        void armALU()
+        {
+            constexpr bool I = KNOWN_BIT<25>(TKnownBits);
+            if (I == 0)
             {
-                if (!cpu.conditionFlagsPassed()) return;
-
-                uint32_t opcode = cpu.mOpcode;
-                Rn = BITS<19, 16>(opcode);
-                Rd = BITS<15, 12>(opcode);
-                S = KNOWN_BIT<20>(TKnownBits);
-                bool I = KNOWN_BIT<25>(TKnownBits);
-                if (I == 0)
-                {
-                    constexpr uint32_t ShiftType = KNOWN_BITS<6, 5>(TKnownBits);
-                    uint32_t Rm = BITS<3, 0>(opcode);
-                    bool R = KNOWN_BIT<4>(TKnownBits);
-                    if (R == 0)
-                    {
-                        uint32_t Is = BITS<11, 7>(opcode);
-                        auto result = cpu.evalImmShift<ShiftType>(cpu.getRegister(Rm), Is);
-                        Op2 = result.value;
-                        Cin = result.cf;
-                    }
-                    else
-                    {
-                        uint32_t Rs = BITS<11, 8>(opcode);
-                        cpu.prefetch32();
-                        auto result = cpu.evalRegShift<ShiftType>(cpu.getRegister(Rm), cpu.getRegister(Rs));
-                        Op2 = result.value;
-                        Cin = result.cf;
-                    }
-                }
+                constexpr bool R = KNOWN_BIT<4>(TKnownBits);
+                if (R == 0)
+                    armDataProcRegImm<TKnownBits>();
                 else
-                {
-                    uint32_t Is = BITS<11, 8>(opcode);
-                    uint32_t Immediate = BITS<7, 0>(opcode);
-                    Op2 = evalRORImm32(Immediate, Is);
-                    Cin = cpu.mRegisters.flag_c;
-                }
-
-                executeALU<KNOWN_BITS<24, 21>(TKnownBits)>(cpu.mRegisters.r[Rd], cpu.mRegisters.r[Rn], Op2, Cin);
+                    armDataProcRegReg<TKnownBits>();
             }
-
-            uint32_t addWithCarry(uint32_t a, uint32_t b, uint32_t c, bool& carry_out, bool& overflow_out)
+            else
             {
-                uint64_t result_unsigned = static_cast<uint64_t>(a) + static_cast<uint64_t>(b) + static_cast<uint64_t>(c);
-                int64_t result_signed = static_cast<int64_t>(static_cast<int32_t>(a)) + static_cast<int64_t>(static_cast<int32_t>(b)) + static_cast<int64_t>(c);
-                uint64_t result = result_unsigned & 0xffffffff;
-                carry_out = result != result_unsigned;
-                overflow_out = static_cast<int64_t>(static_cast<int32_t>(result)) != result_signed;
-                return static_cast<uint32_t>(result);
+                armDataProcImm<TKnownBits>();
             }
+        }
 
-            template <bool saveResult>
-            void executeLogic(uint32_t& rd, uint32_t result, uint32_t cf)
-            {
-                if (S)
-                {
-                    cpu.mRegisters.flag_n = BIT<31>(result);
-                    cpu.mRegisters.flag_z = result == 0;
-                    cpu.mRegisters.flag_c = cf == 0;
-                }
-                if (saveResult)
-                {
-                    rd = result;
-                    if (Rd == 15)
-                    {
-                        EMU_NOT_IMPLEMENTED();
-                    }
-                }
-            }
+        uint32_t addWithCarry(uint32_t a, uint32_t b, uint32_t c, bool& carry_out, bool& overflow_out)
+        {
+            uint64_t result_unsigned = static_cast<uint64_t>(a) + static_cast<uint64_t>(b) + static_cast<uint64_t>(c);
+            int64_t result_signed = static_cast<int64_t>(static_cast<int32_t>(a)) + static_cast<int64_t>(static_cast<int32_t>(b)) + static_cast<int64_t>(c);
+            uint64_t result = result_unsigned & 0xffffffff;
+            carry_out = result != result_unsigned;
+            overflow_out = static_cast<int64_t>(static_cast<int32_t>(result)) != result_signed;
+            return static_cast<uint32_t>(result);
+        }
 
-            template <bool saveResult>
-            void executeArithmetic(uint32_t& rd, uint32_t a, uint32_t b, uint32_t c)
+        template <bool saveResult, bool S>
+        void armLogic(uint32_t& rd, uint32_t result, uint32_t cf)
+        {
+            if (S)
             {
-                bool carry, overflow;
-                uint32_t result = addWithCarry(a, b, c, carry, overflow);
-                if (S)
-                {
-                    cpu.mRegisters.flag_n = BIT<31>(result);
-                    cpu.mRegisters.flag_z = result == 0;
-                    cpu.mRegisters.flag_c = carry;
-                    cpu.mRegisters.flag_v = overflow;
-                }
-                if (saveResult)
-                {
-                    rd = result;
-                    if (Rd == 15)
-                    {
-                        EMU_NOT_IMPLEMENTED();
-                    }
-                }
+                mRegisters.flag_n = BIT<31>(result);
+                mRegisters.flag_z = result == 0;
+                mRegisters.flag_c = cf == 0;
             }
+            if (saveResult)
+                rd = result;
+        }
 
-            template <uint32_t opcode>
-            void executeALU(uint32_t& rd, uint32_t rn, uint32_t op2, uint32_t cf)
+        template <bool saveResult, bool S>
+        void armArithmetic(uint32_t& rd, uint32_t a, uint32_t b, uint32_t c)
+        {
+            bool carry, overflow;
+            uint32_t result = addWithCarry(a, b, c, carry, overflow);
+            if (S)
             {
-                if (opcode == 0x0) return executeLogic<true>(rd, rn & op2, cf);
-                if (opcode == 0x1) return executeLogic<true>(rd, rn ^ op2, cf);
-                if (opcode == 0x2) return executeArithmetic<true>(rd, rn, ~op2, 1);
-                if (opcode == 0x3) return executeArithmetic<true>(rd, ~rn, op2, 1);
-                if (opcode == 0x4) return executeArithmetic<true>(rd, rn, op2, 0);
-                if (opcode == 0x5) return executeArithmetic<true>(rd, rn, op2, cf);
-                if (opcode == 0x6) return executeArithmetic<true>(rd, rn, ~op2, cf);
-                if (opcode == 0x7) return executeArithmetic<true>(rd, ~rn, op2, cf);
-                if (opcode == 0x8) return executeLogic<false>(rd, rn & op2, cf);
-                if (opcode == 0x9) return executeLogic<false>(rd, rn ^ op2, cf);
-                if (opcode == 0xa) return executeArithmetic<false>(rd, rn, ~op2, 1);
-                if (opcode == 0xb) return executeArithmetic<false>(rd, rn, op2, 0);
-                if (opcode == 0xc) return executeLogic<true>(rd, rn | op2, cf);
-                if (opcode == 0xd) return executeLogic<true>(rd, op2, cf);
-                if (opcode == 0xe) return executeLogic<true>(rd, rn & ~op2, cf);
-                if (opcode == 0xf) return executeLogic<true>(rd, ~op2, cf);
+                mRegisters.flag_n = BIT<31>(result);
+                mRegisters.flag_z = result == 0;
+                mRegisters.flag_c = carry;
+                mRegisters.flag_v = overflow;
             }
-        };
+            if (saveResult)
+                rd = result;
+        }
+
+        template <uint32_t TKnownBits>
+        void armALU(uint32_t op2, uint32_t cf)
+        {
+            constexpr uint32_t Opcode = KNOWN_BITS<24, 21>(TKnownBits);
+            constexpr bool S = KNOWN_BIT<20>(TKnownBits);
+            uint32_t Rn = BITS<19, 16>(mOpcode);
+            uint32_t Rd = BITS<15, 12>(mOpcode);
+            uint32_t& rd = mRegisters.r[Rd];
+            uint32_t rn = mRegisters.r[Rn];
+
+            if (Opcode == 0x0) return armLogic<true, S>(rd, rn & op2, cf);
+            if (Opcode == 0x1) return armLogic<true, S>(rd, rn ^ op2, cf);
+            if (Opcode == 0x2) return armArithmetic<true, S>(rd, rn, ~op2, 1);
+            if (Opcode == 0x3) return armArithmetic<true, S>(rd, ~rn, op2, 1);
+            if (Opcode == 0x4) return armArithmetic<true, S>(rd, rn, op2, 0);
+            if (Opcode == 0x5) return armArithmetic<true, S>(rd, rn, op2, cf);
+            if (Opcode == 0x6) return armArithmetic<true, S>(rd, rn, ~op2, cf);
+            if (Opcode == 0x7) return armArithmetic<true, S>(rd, ~rn, op2, cf);
+            if (Opcode == 0x8) return armLogic<false, true>(rd, rn & op2, cf);
+            if (Opcode == 0x9) return armLogic<false, true>(rd, rn ^ op2, cf);
+            if (Opcode == 0xa) return armArithmetic<false, true>(rd, rn, ~op2, 1);
+            if (Opcode == 0xb) return armArithmetic<false, true>(rd, rn, op2, 0);
+            if (Opcode == 0xc) return armLogic<true, S>(rd, rn | op2, cf);
+            if (Opcode == 0xd) return armLogic<true, S>(rd, op2, cf);
+            if (Opcode == 0xe) return armLogic<true, S>(rd, rn & ~op2, cf);
+            if (Opcode == 0xf) return armLogic<true, S>(rd, ~op2, cf);
+
+            if (Rd == 15)
+            {
+                EMU_NOT_IMPLEMENTED();
+            }
+        }
 
         template <uint32_t TKnownBits> void armDataProc()
         {
-            ALU<TKnownBits> alu(*this);
+            armALU<TKnownBits>();
         }
 
         template <uint32_t TKnownBits> void insn_and()
