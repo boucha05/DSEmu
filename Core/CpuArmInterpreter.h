@@ -64,16 +64,6 @@ namespace
             return false;
         }
 
-        uint32_t getRegister(uint32_t regIndex)
-        {
-            return mRegisters.r[regIndex];
-        }
-
-        void setRegister(uint32_t regIndex, uint32_t value)
-        {
-            mRegisters.r[regIndex] = value;
-        }
-
         struct ShiftResult
         {
             uint32_t value;
@@ -277,8 +267,8 @@ namespace
             constexpr bool S = ARM_KNOWN_BIT<20>(TKnownBits);
             uint32_t Rn = BITS<19, 16>(mOpcode);
             uint32_t Rd = BITS<15, 12>(mOpcode);
-            uint32_t& rd = mRegisters.r[Rd];
             uint32_t rn = mRegisters.r[Rn];
+            uint32_t& rd = mRegisters.r[Rd];
 
             if (Opcode == 0x0) return armLogic<true, S>(rd, rn & op2, cf);
             if (Opcode == 0x1) return armLogic<true, S>(rd, rn ^ op2, cf);
@@ -533,135 +523,85 @@ namespace
             EMU_NOT_IMPLEMENTED();
         }
 
-        template <uint32_t TKnownBits>
-        struct MemorySDT
+        template <uint32_t TKnownBits> void armTransImm9()
         {
-            MemorySDT(CpuArmInterpreter& cpu)
+            if (!conditionFlagsPassed()) return;
+            uint32_t Immediate = BITS<11, 0>(mOpcode);
+            armTrans9<TKnownBits>(Immediate);
+        }
+
+        template <uint32_t TKnownBits> void armTransReg9()
+        {
+            if (!conditionFlagsPassed()) return;
+            uint32_t Rm = BITS<3, 0>(mOpcode);
+            uint32_t Is = BITS<11, 7>(mOpcode);
+            constexpr uint32_t ShiftType = ARM_KNOWN_BITS<6, 5>(TKnownBits);
+            uint32_t offset = evalImmShift<ShiftType>(mRegisters.r[Rm], Is).value;
+            armTrans9<TKnownBits>(offset);
+        }
+
+        template <uint32_t TKnownBits>
+        void armTrans9(uint32_t offset)
+        {
+            if (!conditionFlagsPassed()) return;
+
+            constexpr bool P = ARM_KNOWN_BIT<24>(TKnownBits);
+            constexpr bool U = ARM_KNOWN_BIT<23>(TKnownBits);
+            constexpr bool B = ARM_KNOWN_BIT<22>(TKnownBits);
+            constexpr bool T = ARM_KNOWN_BIT<21>(TKnownBits);
+            constexpr bool W = ARM_KNOWN_BIT<21>(TKnownBits);
+            constexpr bool L = ARM_KNOWN_BIT<20>(TKnownBits);
+            uint32_t Rn = BITS<19, 16>(mOpcode);
+            uint32_t Rd = BITS<15, 12>(mOpcode);
+            uint32_t& rn = mRegisters.r[Rn];
+            uint32_t& rd = mRegisters.r[Rd];
+
+            uint32_t updated = U ? rn + offset : rn - offset;
+            uint32_t address = P ? updated : rn;
+
+            EMU_NOT_IMPLEMENTED_COND(!P & T);
+
+            if (!L)
             {
-                uint32_t opcode = cpu.mOpcode;
-                uint32_t Rn = BITS<19, 16>(opcode);
-                uint32_t Rd = BITS<15, 12>(opcode);
-
-                constexpr bool I = ARM_KNOWN_BIT<25>(TKnownBits);
-                constexpr bool P = ARM_KNOWN_BIT<24>(TKnownBits);
-                constexpr bool U = ARM_KNOWN_BIT<23>(TKnownBits);
-                constexpr bool B = ARM_KNOWN_BIT<22>(TKnownBits);
-
-                // Offset
-                uint32_t offset;
-                if (I == 0)
-                {
-                    uint32_t Immediate = BITS<11, 0>(opcode);
-                    offset = U ? Immediate : (0 - Immediate);
-                }
+                if (B)
+                    write8(address ^ MEM_ACCESS_ENDIAN_8, uint8_t(rd)); // STRB
                 else
-                {
-                    uint32_t Is = BITS<11, 7>(opcode);
-                    constexpr uint32_t ShiftType = ARM_KNOWN_BITS<6, 5>(TKnownBits);
-                    uint32_t Rm = BITS<3, 0>(opcode);
-                    offset = cpu.evalImmShift<ShiftType>(cpu.getRegister(Rm), Is).value;
-                }
-
-                // Pre-increment
-                uint32_t address = cpu.getRegister(Rn);
-                if (P == 1)
-                {
-                    address += offset;
-                    constexpr bool W = ARM_KNOWN_BIT<21>(TKnownBits);
-                    if (W)
-                        cpu.setRegister(Rn, address);
-                }
+                    write32(address, rd); // STR
+            }
+            else
+            {
+                if (B)
+                    rd = uint32_t(read8(address ^ MEM_ACCESS_ENDIAN_8)); // LDRB
                 else
-                {
-                    // TODO: Force non priviledged access
-                    constexpr bool T = ARM_KNOWN_BIT<21>(TKnownBits);
-                    if (T)
-                    {
-                        EMU_NOT_IMPLEMENTED();
-                    }
-                }
-
-                // Memory access
-                constexpr bool L = ARM_KNOWN_BIT<20>(TKnownBits);
-                if (L == 0)
-                {
-                    // Store
-                    if (B)
-                    {
-                        // STRB
-                        cpu.write8(address ^ MEM_ACCESS_ENDIAN_8, static_cast<uint8_t>(Rd));
-                    }
-                    else
-                    {
-                        // STR
-                        cpu.write32(address, Rd);
-                    }
-                }
-                else
-                {
-                    // Load
-                    if (B)
-                    {
-                        // LDRB
-                        Rd = static_cast<uint32_t>(cpu.read8(address ^ MEM_ACCESS_ENDIAN_8));
-                    }
-                    else
-                    {
-                        // LDR
-                        Rd = cpu.read32(address);
-                    }
-                }
-
-                // Post-increment
-                if (P == 0)
-                {
-                    // TODO: Restore priviledge access
-                    address += offset;
-                    cpu.setRegister(Rn, address);
-                }
+                    rd = read32(address); // LDR
+                EMU_NOT_IMPLEMENTED_COND(Rd == 15);
             }
 
-            void saveResult(uint32_t result)
+            if (!P | W)
             {
-                if (Rd == 15)
-                {
-                    EMU_NOT_IMPLEMENTED();
-                }
-                cpu.setRegister(Rd, result);
+                rn = address;
+                EMU_NOT_IMPLEMENTED_COND(Rd == 15);
             }
+        }
 
-            void saveFlagsLogical(uint32_t result)
-            {
-                if (S)
-                {
-                    cpu.mRegisters.flag_n = BIT<31>(result);
-                    cpu.mRegisters.flag_z = result == 0;
-                }
-            }
-
-            void saveFlagsArithmetic(uint32_t result, bool carry, bool overflow)
-            {
-                if (S)
-                {
-                    cpu.mRegisters.flag_n = BIT<31>(result);
-                    cpu.mRegisters.flag_z = result == 0;
-                    cpu.mRegisters.flag_c = carry;
-                    cpu.mRegisters.flag_v = overflow;
-                }
-            }
-        };
-
+        template <uint32_t TKnownBits>
+        void armMem()
+        {
+            constexpr bool I = ARM_KNOWN_BIT<25>(TKnownBits);
+            if (!I)
+                armTransImm9<TKnownBits>();
+            else
+                armTransReg9<TKnownBits>();
+        }
 
         template <uint32_t TKnownBits> void insn_str()
         {
-            if (!conditionFlagsPassed()) return;
-            MemorySDT<TKnownBits> memory(*this);
+            armMem<TKnownBits>();
         }
 
         template <uint32_t TKnownBits> void insn_ldr()
         {
-            if (!conditionFlagsPassed()) return;
-            MemorySDT<TKnownBits> memory(*this);
+            armMem<TKnownBits>();
         }
 
         template <uint32_t TKnownBits> void insn_stm()

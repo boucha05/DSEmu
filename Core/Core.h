@@ -26,7 +26,12 @@
     }                                       \
 }
 
-#define EMU_NOT_IMPLEMENTED()       EMU_INVOKE_ONCE(emu::notImplemented(__FUNCTION__))
+#if EMU_DEBUG
+#define EMU_NOT_IMPLEMENTED()                       EMU_INVOKE_ONCE(emu::notImplemented(__FUNCTION__))
+#else
+#define EMU_NOT_IMPLEMENTED()
+#endif
+#define EMU_NOT_IMPLEMENTED_COND(cond)              if (!(cond)) ; else { EMU_NOT_IMPLEMENTED() }
 
 #define EMU_BITS_BLEND(val1, val2, mask)            (((val1) & ~(mask)) | ((val2) & (mask)))
 #define EMU_BITS_MASK(shift, size)                  (((1 << (size)) - 1) << (shift))
